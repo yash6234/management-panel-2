@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import DetailCard from "./DetailCard";
 import {
   mockPersonalDetails,
@@ -6,6 +6,9 @@ import {
   mockCommission,
   mockSales,
 } from "./Data";
+import { fetchCommissions } from "../Masters/Commission";
+import { fetchSalesMen } from "../Masters/salesManApi";
+import { fetchDiesel } from "../Masters/dieselApi";
 
 const TABS = [
   "Personal Details",
@@ -16,6 +19,19 @@ const TABS = [
 
 export default function Data() {
   const [activeTab, setActiveTab] = useState(0);
+const [commission, setCommission] = useState([]);
+const [personalDetails, setPersonalDetails] = useState([]);
+const [diesel,setDiesel] = useState([]);
+
+useEffect(() => {
+  fetchCommissions().then(setCommission);
+}, []);
+useEffect(() => {
+  fetchSalesMen().then(setPersonalDetails);
+}, []);
+useEffect(() => {
+  fetchDiesel().then(setDiesel);
+}, []);
 
   return (
     <div className="space-y-6">
@@ -40,7 +56,7 @@ export default function Data() {
         <div className="p-6">
           {activeTab === 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {mockPersonalDetails.map((p, i) => (
+              {personalDetails.map((p, i) => (
                 <DetailCard
                   key={i}
                   title={p.name}
@@ -55,7 +71,7 @@ export default function Data() {
           )}
           {activeTab === 1 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {mockVehicles.map((v, i) => (
+              {diesel.map((v, i) => (
                 <DetailCard
                   key={i}
                   title={v.name}
@@ -66,7 +82,7 @@ export default function Data() {
           )}
           {activeTab === 2 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {mockCommission.map((c, i) => (
+              {commission.map((c, i) => (
                 <DetailCard
                   key={i}
                   title={c.name}
