@@ -41,6 +41,18 @@ export const fetchDiesel = async () => {
 export const deleteDiesel = async (id) => {
   const response = await axios.get(
     `${baseUrl}/delete/${createPayload({ _id: id })}`
+    
   );
-  return decryptData(response.data.data);
+ 
+console.log("response",response.data.data);
+
+ if (!response.data || !response.data.data) {
+    return true;
+  }
+
+  try {
+    return decryptData(response.data.data);
+  } catch {
+    return true;
+  }
 };
