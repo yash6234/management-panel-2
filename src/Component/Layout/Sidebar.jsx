@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end:true },
   { path: "/dashboard/masters", label: "Masters", icon: Users },
   { path: "/dashboard/sales", label: "Sales", icon: ShoppingCart },
   { path: "/dashboard/data", label: "Data", icon: Database },
@@ -27,10 +27,11 @@ export default function Sidebar() {
         <h1 className="text-xl font-semibold text-white/95">Management Panel</h1>
       </div>
       <nav className="flex-1 px-3 space-y-1">
-        {navItems.map(({ path, label, icon: Icon }) => (
+        {navItems.map(({ path, label, icon: Icon, end }) => (
           <NavLink
             key={path}
             to={path}
+            end={end}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive

@@ -1,8 +1,11 @@
 import { Pencil, Trash2, Plus } from "lucide-react";
 import Modal from "../Layout/Modal";
+import { useState,useEffect } from "react";
+import { fetchCommissions } from "./Commission";
 
-export default function Commission({
-  commission,
+
+ function Commission({
+
   formData,
   modalState,
   onAdd,
@@ -12,6 +15,19 @@ export default function Commission({
   onClose,
   setFormData,
 }) {
+  const [commission, setCommission] = useState([]);
+
+  useEffect(() => {
+    const loadCommissions = async () => {
+      try {
+        const data = await fetchCommissions();
+        setCommission(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadCommissions();
+  }, []);
   return (
     <>
       <div className="flex justify-end mb-4">
@@ -120,3 +136,4 @@ export default function Commission({
     </>
   );
 }
+export default Commission;

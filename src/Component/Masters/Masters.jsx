@@ -4,7 +4,7 @@ import Vehicle from "./Vehicle.jsx";
 import Commission from "./Commission.jsx";
 import { initialPersons, generateId } from "./Person";
 import { initialVehicles } from "./Vehicle";
-import { initialCommission } from "./Commission";
+
 import {
   fetchSalesMen,
   addSalesMan,
@@ -24,7 +24,7 @@ export default function Masters() {
   const [activeTab, setActiveTab] = useState(0);
   const [persons, setPersons] = useState(initialPersons);
   const [vehicles, setVehicles] = useState(initialVehicles);
-  const [commission, setCommission] = useState(initialCommission);
+  const [commission, setCommission] = useState("");
   const [personModal, setPersonModal] = useState(null);
   const [vehicleModal, setVehicleModal] = useState(null);
   const [commissionModal, setCommissionModal] = useState(null);
