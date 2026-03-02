@@ -23,10 +23,10 @@ export const fetchCommissions = async () => {
   }));
 };        
 
-export const editCommission = async (payload) => {
+export const editCommission = async (id, value) => {
  
   const response = await axios.get(
-    `${baseUrl}/edit/${createPayload({ _id, value })}`
+    `${baseUrl}/edit/${createPayload({_id: id, value: Number(value) })}`
   );
   const result = decryptData(response.data.data);
   return result;

@@ -1,60 +1,153 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import Modal from "../Layout/Modal";
-import { mockPersons, initialSales } from "./Sales";
+import {
+  fetchSalesMan,
+  fetchSales,
+  addMonth,
+  addSales,
+} from "./Sales";
+import { fetchDiesel } from "../Masters/dieselApi";
 
 export default function Sales() {
-  const [selectedPerson, setSelectedPerson] = useState("All persons");
+  const [salesMen, setSalesMen] = useState([]);
+  const [dieselOptions, setDieselOptions] = useState([]);
+  const [selectedSalesmanId, setSelectedSalesmanId] = useState("");
+  const [salesEntries, setSalesEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingSales, setLoadingSales] = useState(false);
+  const [error, setError] = useState(null);
   const [showSalesModal, setShowSalesModal] = useState(false);
-  const [salesEntries, setSalesEntries] = useState(initialSales);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    person: "",
+    sales_man: "",
     date: "",
-    salesOfProducts: "",
-    deposit: "",
-    credit: "",
-    location: "",
+    diesel: "",
+    amount: "",
+    left: 0,
+    over: 0,
   });
 
-  const calendarEvents = salesEntries
-    .filter(
-      (s) => selectedPerson === "All persons" || s.person === selectedPerson
-    )
-    .map((s) => ({
-      id: s.id,
-      title: `${s.products} - ₹${s.deposit}`,
-      date: s.date,
-    }));
+  const loadSalesMen = useCallback(async () => {
+    try {
+      setError(null);
+      const list = await fetchSalesMan();
+      setSalesMen(Array.isArray(list) ? list : []);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load sales men");
+      setSalesMen([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadDiesel = useCallback(async () => {
+    try {
+      const list = await fetchDiesel();
+      setDieselOptions(Array.isArray(list) ? list : []);
+    } catch {
+      setDieselOptions([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSalesMen();
+    loadDiesel();
+  }, [loadSalesMen, loadDiesel]);
+
+  const loadSalesForSalesman = useCallback(async (salesmanId) => {
+    if (!salesmanId) {
+      setSalesEntries([]);
+      return;
+    }
+    setLoadingSales(true);
+    try {
+      const list = await fetchSales(salesmanId);
+      setSalesEntries(Array.isArray(list) ? list : []);
+    } catch (err) {
+      setSalesEntries([]);
+    } finally {
+      setLoadingSales(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSalesForSalesman(selectedSalesmanId);
+  }, [selectedSalesmanId, loadSalesForSalesman]);
+
+  const calendarEvents = salesEntries.map((s) => ({
+    id: s._id || s.id || `${s.date}-${s.amount}`,
+    title: `₹${s.amount ?? s.deposit ?? ""}${s.diesel ? ` - ${s.diesel}` : ""}`,
+    date: s.date,
+  }));
 
   const handleDateClick = (info) => {
     setFormData({
-      person: "",
+      sales_man: selectedSalesmanId || "",
       date: info.dateStr,
-      salesOfProducts: "",
-      deposit: "",
-      credit: "",
-      location: "",
+      diesel: "",
+      amount: "",
+      left: 0,
+      over: 0,
     });
+    setSubmitError(null);
     setShowSalesModal(true);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newEntry = {
-      id: Date.now().toString(),
+  const ensureMonthThenAddSales = async () => {
+    const { sales_man, date, diesel, amount, left, over } = formData;
+    if (!sales_man || !date) {
+      setSubmitError("Sales person and date are required.");
+      return;
+    }
+    const [year, month] = date.split("-");
+    try {
+      await addMonth({
+        sales_man,
+        month: parseInt(month, 10),
+        year: parseInt(year, 10),
+      });
+    } catch {
+      // Month may already exist; continue to add sales
+    }
+    return addSales({
       date: formData.date,
-      person: formData.person,
-      products: formData.salesOfProducts,
-      deposit: formData.deposit,
-      credit: formData.credit,
-      location: formData.location,
-    };
-    setSalesEntries((prev) => [...prev, newEntry]);
-    setShowSalesModal(false);
+      sales_man: formData.sales_man,
+      diesel: formData.diesel,
+      amount: formData.amount,
+      left: formData.left ?? 0,
+      over: formData.over ?? 0,
+    });
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await ensureMonthThenAddSales();
+      setShowSalesModal(false);
+      if (selectedSalesmanId) loadSalesForSalesman(selectedSalesmanId);
+    } catch (err) {
+      setSubmitError(
+        err?.response?.data?.message || err?.message || "Failed to add sales"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 h-[calc(100vh-12rem)] flex flex-col">
@@ -62,23 +155,35 @@ export default function Sales() {
         <h2 className="text-xl font-semibold text-gray-900">Sales</h2>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Person
+            Sales person
           </label>
           <select
-            value={selectedPerson}
-            onChange={(e) => setSelectedPerson(e.target.value)}
+            value={selectedSalesmanId}
+            onChange={(e) => setSelectedSalesmanId(e.target.value)}
             className="px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30 focus:border-primary min-w-[200px]"
           >
-            <option value="All persons">All persons</option>
-            {mockPersons.map((p) => (
-              <option key={p} value={p}>
-                {p}
+            <option value="">All persons</option>
+            {salesMen.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.name ?? p.email ?? p._id}
               </option>
             ))}
           </select>
         </div>
       </div>
-      <div className="flex-1 min-h-0 bg-card rounded-xl border border-[#E5E7EB] overflow-hidden p-4">
+
+      {error && (
+        <div className="text-danger text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 bg-card rounded-xl border border-[#E5E7EB] overflow-hidden p-4 relative">
+        {loadingSales && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10 rounded-xl">
+            <span className="text-gray-600">Loading sales…</span>
+          </div>
+        )}
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
@@ -102,19 +207,20 @@ export default function Sales() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Person
+              Sales person <span className="text-danger">*</span>
             </label>
             <select
-              value={formData.person}
+              value={formData.sales_man}
               onChange={(e) =>
-                setFormData({ ...formData, person: e.target.value })
+                setFormData({ ...formData, sales_man: e.target.value })
               }
               className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              required
             >
-              <option value="">Select person (optional)</option>
-              {mockPersons.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              <option value="">Select person</option>
+              {salesMen.map((p) => (
+                <option key={p._id} value={p._id}>
+                  {p.name ?? p.email ?? p._id}
                 </option>
               ))}
             </select>
@@ -135,62 +241,78 @@ export default function Sales() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sales of Products <span className="text-danger">*</span>
+              Diesel
+            </label>
+            <select
+              value={formData.diesel}
+              onChange={(e) =>
+                setFormData({ ...formData, diesel: e.target.value })
+              }
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">Select diesel (optional)</option>
+              {dieselOptions.map((d) => (
+                <option
+                  key={d._id}
+                  value={d._id ?? d.name ?? d.amount}
+                >
+                  {d.name ?? d.amount ?? d._id}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Amount <span className="text-danger">*</span>
             </label>
             <input
-              type="text"
-              value={formData.salesOfProducts}
+              type="number"
+              min="0"
+              step="any"
+              value={formData.amount}
               onChange={(e) =>
-                setFormData({ ...formData, salesOfProducts: e.target.value })
+                setFormData({ ...formData, amount: e.target.value })
               }
-              placeholder="Sales of products"
+              placeholder="Amount"
               className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Deposit <span className="text-danger">*</span>
+              Left
             </label>
             <input
-              type="text"
-              value={formData.deposit}
+              type="number"
+              min="0"
+              step="any"
+              value={formData.left}
               onChange={(e) =>
-                setFormData({ ...formData, deposit: e.target.value })
+                setFormData({ ...formData, left: e.target.value || 0 })
               }
-              placeholder="Deposit"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Credit
-            </label>
-            <input
-              type="text"
-              value={formData.credit}
-              onChange={(e) =>
-                setFormData({ ...formData, credit: e.target.value })
-              }
-              placeholder="Credit"
+              placeholder="0"
               className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Location
+              Over
             </label>
             <input
-              type="text"
-              value={formData.location}
+              type="number"
+              min="0"
+              step="any"
+              value={formData.over}
               onChange={(e) =>
-                setFormData({ ...formData, location: e.target.value })
+                setFormData({ ...formData, over: e.target.value || 0 })
               }
-              placeholder="Location"
+              placeholder="0"
               className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
             />
           </div>
+          {submitError && (
+            <div className="text-danger text-sm">{submitError}</div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -201,9 +323,10 @@ export default function Sales() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+              disabled={submitting}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
             >
-              Add
+              {submitting ? "Adding…" : "Add"}
             </button>
           </div>
         </form>
