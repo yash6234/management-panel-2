@@ -2,72 +2,72 @@ import axios from "axios";
 import Cookie from "js-cookie";
 import { encryptData, decryptData } from "../../api/enc_dec_admin";
 
-const baseUrl = import.meta.env.VITE_IP || "";
-const baseUrlWithProtocol = baseUrl.startsWith("http") ? baseUrl : `http://${baseUrl}`;
+/**
+ * Sales page API routes (GET, payload in path :data as encrypted + encoded):
+ *   /fetch-sales-man/:data
+ *   /sales-man/fetch-sales/:data  { salesman_id }
+ *   /sales-man/add-month/:data   { sales_man, month, year }
+ *   /sales-man/add-sales/:data  { date, sales_man, diesel, amount, left = 0, over = 0 }
+ */
+const baseUrl = `${import.meta.env.VITE_IP}/admin/sales/sales-man`;
+const baseUrl1 = `${import.meta.env.VITE_IP}/admin/sales`;
+
 
 const createPayload = (additionalData = {}) => {
   const token = Cookie.get("data");
   return encodeURIComponent(encryptData({ data: token, ...additionalData }));
 };
 
-/**
- * GET /fetch-sales-man/:data
- * Returns list of sales men for the Sales page.
- */
+/** GET /fetch-sales-man/:data */
 export const fetchSalesMan = async () => {
   const response = await axios.get(
-    `${baseUrlWithProtocol}/fetch-sales-man/${createPayload()}`
+    `${baseUrl1}/fetch-sales-man/${createPayload()}`
   );
-  let data = null;
-  try {
-    if (response?.data?.data) data = decryptData(response.data.data);
-  } catch {}
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object")
-    return data.list ?? data.data ?? data.items ?? [];
-  return [];
+  console.log(response.data.data);
+  return decryptData(response.data.data) ?? [];
 };
 
-/**
- * GET /sales-man/fetch-sales/:data
- * @param {string} salesman_id
- */
+/** GET /sales-man/fetch-sales/:data  Payload: { salesman_id } */
 export const fetchSales = async (salesman_id) => {
   const response = await axios.get(
-    `${baseUrlWithProtocol}/sales-man/fetch-sales/${createPayload({ salesman_id })}`
+    `${baseUrl}/fetch-sales/${createPayload({ salesman_id })}`
   );
-  let data = null;
-  try {
-    if (response?.data?.data) data = decryptData(response.data.data);
-  } catch {}
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object")
-    return data.list ?? data.data ?? data.items ?? [];
-  return [];
+  const raw = response?.data?.data;
+  if (raw != null && typeof raw === "string") {
+    try {
+      const data = decryptData(raw);
+      return Array.isArray(data) ? data : data?.list ?? data?.data ?? data?.items ?? [];
+    } catch {}
+  }
+  // Backend may return plain JSON (no encryption)
+  // if (Array.isArray(response?.data?.data)) return response.data.data;
+  // if (Array.isArray(response?.data)) return response.data;
+  // const data = response?.data?.data ?? response?.data;
+  // if (data && typeof data === "object" && !Array.isArray(data))
+  //   return data.list ?? data.data ?? data.items ?? [];
+  // return [];
 };
 
-/**
- * GET /sales-man/add-month/:data
- * @param {{ sales_man: string, month: number, year: number }}
- */
+/** GET /sales-man/add-month/:data  Payload: { sales_man, month, year } */
 export const addMonth = async ({ sales_man, month, year }) => {
   const response = await axios.get(
-    `${baseUrlWithProtocol}/sales-man/add-month/${createPayload({
+    `${baseUrl}/add-month/${createPayload({
       sales_man,
       month: Number(month),
       year: Number(year),
     })}`
   );
-  try {
-    if (response?.data?.data) return decryptData(response.data.data);
-  } catch {}
-  return response.data;
+  if (response.status < 200 || response.status >= 300) return null;
+  const raw = response?.data?.data;
+  if (raw != null && typeof raw === "string") {
+    try {
+      return decryptData(raw);
+    } catch {}
+  }
+  return response?.data ?? null;
 };
 
-/**
- * GET /sales-man/add-sales/:data
- * @param {{ date: string, sales_man: string, diesel: string|number, amount: number, left?: number, over?: number }}
- */
+/** GET /sales-man/add-sales/:data  Payload: { date, sales_man, diesel, amount, left = 0, over = 0 } */
 export const addSales = async (payload) => {
   const {
     date,
@@ -78,7 +78,7 @@ export const addSales = async (payload) => {
     over = 0,
   } = payload;
   const response = await axios.get(
-    `${baseUrlWithProtocol}/sales-man/add-sales/${createPayload({
+    `${baseUrl}/add-sales/${createPayload({
       date,
       sales_man,
       diesel: diesel ?? "",
@@ -87,8 +87,13 @@ export const addSales = async (payload) => {
       over: Number(over),
     })}`
   );
-  try {
-    if (response?.data?.data) return decryptData(response.data.data);
-  } catch {}
-  return response.data;
+  const raw = response?.data?.data;
+  if (raw != null && typeof raw === "string") {
+    try {
+      return decryptData(raw);
+    } catch {
+      // Backend may return plain JSON; use as-is
+    }
+  }
+  return response?.data.data ?? null;
 };
