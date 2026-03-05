@@ -92,7 +92,7 @@ export default function Sales() {
     if (!val) return null;
 
     if (typeof val === "string") {
-      return val.split("T")[0];
+     return val.slice(0, 10);
     }
 
     return val;
@@ -172,6 +172,10 @@ export default function Sales() {
     })
     .filter(Boolean);
 
+const totalAmount = salesEntries.reduce((sum, s) => {
+  const amt = Number(s.amount ?? s.deposit ?? 0);
+  return sum + (isNaN(amt) ? 0 : amt);
+}, 0);
   const renderEventContent = (eventInfo) => {
     const { amount, left, over } = eventInfo.event.extendedProps ?? {};
     return (
@@ -245,24 +249,24 @@ export default function Sales() {
 
     if (sale) handleViewSaleDetails(sale);
   };
-  const handleViewSaleDetails = (sale) => {
+ const handleViewSaleDetails = (sale) => {
 
-    const rawDate = sale.date ?? sale.sale_date ?? "";
-    const dateValue = rawDate.split("T")[0];
+  const rawDate = sale.date ?? sale.sale_date ?? "";
+  const dateValue = rawDate.split("T")[0];
 
-    setViewingSale(null); // close details modal
+  setViewingSale(sale); // KEEP SALE FOR EDIT MODE
 
-    setFormData({
-      sales_man: selectedSalesman?._id || "",
-      date: dateValue,
-      diesel: sale.diesel ?? "",
-      amount: sale.amount ?? sale.deposit ?? "",
-      left: sale.left ?? 0,
-      over: sale.over ?? 0,
-    });
+  setFormData({
+    sales_man: selectedSalesman?._id || "",
+    date: dateValue,
+    diesel: sale.diesel ?? "",
+    amount: sale.amount ?? sale.deposit ?? "",
+    left: sale.left ?? 0,
+    over: sale.over ?? 0,
+  });
 
-    setShowSalesModal(true);
-  };
+  setShowSalesModal(true);
+};
 
   const ensureMonthThenAddSales = async () => {
     const { sales_man, date, diesel, amount, left, over } = formData;
@@ -382,6 +386,13 @@ export default function Sales() {
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
             Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
           </h2>
+
+  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+    <span className="text-sm text-gray-600">Total Amount</span>
+    <div className="text-lg font-semibold text-green-700">
+      ₹{totalAmount.toLocaleString()}
+    </div>
+  </div>
 
           {/* <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
