@@ -70,31 +70,7 @@ export default function Sales() {
       setLoading(false);
     }
   }, []);
-  const loadSalesTable = useCallback(async () => {
-    try {
-      const people = await fetchSalesMen();
-      const rows = [];
 
-      for (const person of people) {
-        const sales = await fetchSales(person._id);
-
-        if (Array.isArray(sales)) {
-          sales.forEach((s) => {
-            rows.push({
-              id: s._id,
-              salesman: person.name,
-              diesel: s.diesel ?? "-",
-              amount: s.amount ?? 0,
-            });
-          });
-        }
-      }
-
-      setSalesTable(rows);
-    } catch (err) {
-      console.error("Failed to load table data", err);
-    }
-  }, []);
 
   const loadDiesel = useCallback(async () => {
     try {
@@ -113,11 +89,13 @@ export default function Sales() {
   }, [dieselOptions]);
 
   const formatSaleDate = useCallback((val) => {
-    if (val == null) return null;
-    if (typeof val === "string") return val.split("T")[0] || val;
-    if (typeof val === "number" && !isNaN(val)) return new Date(val).toLocaleDateString();
-    if (val instanceof Date && !isNaN(val)) return val.toLocaleDateString();
-    return String(val).slice(0, 10) || null;
+    if (!val) return null;
+
+    if (typeof val === "string") {
+      return val.split("T")[0];
+    }
+
+    return val;
   }, []);
 
   const getSaleDisplay = useCallback((s) => ({
@@ -161,6 +139,10 @@ export default function Sales() {
   const toDateStr = (val) => {
     if (!val) return null;
 
+    if (typeof val === "string") {
+      return val.slice(0, 10);
+    }
+
     const d = new Date(val);
 
     const year = d.getFullYear();
@@ -183,7 +165,7 @@ export default function Sales() {
         id: s._id ?? s.id ?? `evt-${i}-${dateStr}`,
         title: `₹${amount}`,
         start: dateStr,
-        end: dateStr,
+
         allDay: true,
         extendedProps: { amount, left, over },
       };
@@ -265,9 +247,10 @@ export default function Sales() {
   };
   const handleViewSaleDetails = (sale) => {
 
-    setViewingSale(sale);
+    const rawDate = sale.date ?? sale.sale_date ?? "";
+    const dateValue = rawDate.split("T")[0];
 
-    const dateValue = (sale.date ?? sale.sale_date ?? "").split("T")[0];
+    setViewingSale(null); // close details modal
 
     setFormData({
       sales_man: selectedSalesman?._id || "",
@@ -400,7 +383,7 @@ export default function Sales() {
             Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
           </h2>
 
-          <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
+          {/* <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
             {loadingSales && salesEntries.length === 0 ? (
               <p className="text-gray-500 text-sm">Loading sales…</p>
@@ -429,7 +412,7 @@ export default function Sales() {
                 })}
               </div>
             )}
-          </div>
+          </div> */}
 
           <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
             <style>{`
@@ -448,6 +431,7 @@ export default function Sales() {
 
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
+                initialDate={`${monthYear.year}-${String(monthYear.month).padStart(2, "0")}-01`}
                 headerToolbar={{
                   left: "prev,next today",
                   center: "title",
@@ -467,6 +451,8 @@ export default function Sales() {
           </div>
         </>
       )}
+
+
 
       {/* Table: Person name, Email, Month, Year, Continue to calendar (per row) - after calendar UI */}
       <div className="bg-card rounded-xl border border-[#E5E7EB] overflow-hidden">
@@ -541,7 +527,7 @@ export default function Sales() {
                         disabled={addMonthSubmitting}
                         className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm whitespace-nowrap"
                       >
-                        {addMonthSubmitting || submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
+                        {addMonthSubmitting ? "Adding…" : "Continue to calendar"}
                       </button>
                     </td>
                   </tr>
@@ -721,7 +707,7 @@ export default function Sales() {
               disabled={submitting}
               className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
             >
-              {submitting ? "Adding…" : "Add"}
+              {submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
             </button>
           </div>
         </form>
