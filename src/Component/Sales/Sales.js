@@ -32,20 +32,8 @@ export const fetchSales = async (salesman_id) => {
   const response = await axios.get(
     `${baseUrl}/fetch-sales/${createPayload({ salesman_id })}`
   );
-  const raw = response?.data?.data;
-  if (raw != null && typeof raw === "string") {
-    try {
-      const data = decryptData(raw);
-      return Array.isArray(data) ? data : data?.list ?? data?.data ?? data?.items ?? [];
-    } catch {}
-  }
-  // Backend may return plain JSON (no encryption)
-  // if (Array.isArray(response?.data?.data)) return response.data.data;
-  // if (Array.isArray(response?.data)) return response.data;
-  // const data = response?.data?.data ?? response?.data;
-  // if (data && typeof data === "object" && !Array.isArray(data))
-  //   return data.list ?? data.data ?? data.items ?? [];
-  // return [];
+  const raw = response.data.data;
+  return decryptData(raw) ?? [];
 };
 
 /** GET /sales-man/add-month/:data  Payload: { sales_man, month, year } */
@@ -53,8 +41,8 @@ export const addMonth = async ({ sales_man, month, year }) => {
   const response = await axios.get(
     `${baseUrl}/add-month/${createPayload({
       sales_man,
-      month: Number(month),
-      year: Number(year),
+      month:Number(month),
+      year:Number(year),
     })}`
   );
   if (response.status < 200 || response.status >= 300) return null;

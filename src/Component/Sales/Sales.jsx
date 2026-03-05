@@ -81,17 +81,28 @@ export default function Sales() {
       setSalesEntries([]);
       return;
     }
+
     setLoadingSales(true);
     try {
-      const list = await fetchSales(salesmanId);
-      setSalesEntries(Array.isArray(list) ? list : []);
-    } catch {
+      const response = await fetchSales(salesmanId);
+
+      console.log("API Response:", response);
+
+      const salesArray =
+        Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+
+      setSalesEntries(salesArray);
+    } catch (err) {
+      console.log(err);
       setSalesEntries([]);
     } finally {
       setLoadingSales(false);
     }
   }, []);
-
   useEffect(() => {
     if (step === STEPS.CALENDAR && selectedSalesman?._id) {
       loadSalesForSalesman(selectedSalesman._id);
@@ -99,27 +110,23 @@ export default function Sales() {
   }, [step, selectedSalesman?._id, loadSalesForSalesman]);
 
   const toDateStr = (val) => {
-    if (!val) return null;
-    if (typeof val === "string") return val.split("T")[0];
-    if (val instanceof Date) return val.toISOString().slice(0, 10);
-    return String(val).slice(0, 10) || null;
+    if (val == null) return null;
+    if (typeof val === "string") {
+      const part = val.split("T")[0];
+      return part.length >= 10 ? part.slice(0, 10) : part || null;
+    }
+    if (typeof val === "number" && !isNaN(val))
+      return new Date(val).toISOString().slice(0, 10);
+    if (val instanceof Date && !isNaN(val)) return val.toISOString().slice(0, 10);
+    return null;
   };
 
-  const calendarEvents = salesEntries
-    .map((s, i) => {
-      const dateStr = toDateStr(s.date ?? s.startDate ?? s.sale_date ?? s.createdAt);
-      if (!dateStr) return null;
-      const title = `₹${s.amount ?? s.deposit ?? ""}${s.diesel ? ` - ${s.diesel}` : ""}`.trim() || "Sales";
-      return {
-        id: String(s._id || s.id || `sales-${dateStr}-${s.amount ?? ""}-${i}`),
-        title,
-        start: dateStr,
-        end: dateStr,
-        allDay: true,
-        date: dateStr,
-      };
-    })
-    .filter(Boolean);
+  const calendarEvents = salesEntries.map((s) => ({
+    id: s._id,
+    title: `₹${s.amount || 0}`,
+    start: s.date,
+    allDay: true,
+  }));
 
   const handleSelectPerson = (person) => {
     setSelectedSalesman(person);
@@ -144,12 +151,13 @@ export default function Sales() {
     } catch (err) {
       const data = err?.response?.data;
       const msg =
+        (typeof data === "string" && data) ||
         (typeof data?.message === "string" && data.message) ||
         (typeof data?.msg === "string" && data.msg) ||
         (typeof data?.error === "string" && data.error) ||
         (typeof err?.message === "string" && err.message) ||
         "Failed to add month. Check that the sales person and month/year are valid.";
-      const monthAlreadyExists = /already exists|already exist/i.test(msg);
+      const monthAlreadyExists = /month.*already|already.*(exist|exists)/i.test(msg);
       if (monthAlreadyExists) {
         setAddMonthError(null);
         setStep(STEPS.CALENDAR);
@@ -198,31 +206,23 @@ export default function Sales() {
 
   const handleAddSalesSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      await ensureMonthThenAddSales();
-      setShowSalesModal(false);
-      const newEntry = {
-        _id: `new-${Date.now()}`,
-        date: formData.date,
-        amount: formData.amount,
-        diesel: formData.diesel,
-        left: formData.left ?? 0,
-        over: formData.over ?? 0,
-      };
-      setSalesEntries((prev) => [newEntry, ...prev]);
-      if (selectedSalesman?._id) {
-        await loadSalesForSalesman(selectedSalesman._id);
-      }
-    } catch (err) {
-      setSubmitError(
-        err?.response?.data?.message || err?.message || "Failed to add sales"
-      );
-    } finally {
-      setSubmitting(false);
-    }
+
+    const newSale = {
+      _id: Date.now(),
+      date: formData.date,
+      amount: formData.amount,
+    };
+
+    setSalesEntries((prev) => [...prev, newSale]);
+
+    setShowSalesModal(false);
   };
+  useEffect(() => {
+    console.log("salesEntries:", salesEntries);
+  }, [salesEntries]);
+  useEffect(() => {
+    console.log("calendarEvents:", calendarEvents);
+  }, [calendarEvents]);
 
   const goBack = () => {
     if (step === STEPS.MONTH) {
@@ -375,9 +375,10 @@ export default function Sales() {
       {/* Step 3: Calendar view */}
       {step === STEPS.CALENDAR && selectedSalesman && (
         <>
-          {/* <p className="text-sm text-gray-600">
-            Calendar for <strong>{selectedSalesman.name ?? selectedSalesman.email}</strong>. Click a date to add sales.
-          </p> */}
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
+          </h2>
+
           <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
             <style>{`
               .fc-daygrid-day.fc-day-addable { cursor: pointer; }
@@ -392,6 +393,7 @@ export default function Sales() {
             )}
             <div className="flex-1 min-h-0">
               <FullCalendar
+
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
                 headerToolbar={{
