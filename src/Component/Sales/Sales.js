@@ -93,3 +93,12 @@ export const addSales = async (payload) => {
   }
   return response?.data.data ?? null;
 };
+
+export const fetchSalesTotals = async (salesman_id) => {
+  const response = await axios.get(
+    `${baseUrl}/fetch-sales/${createPayload({ salesman_id })}`
+  );
+
+  const raw = response.data.data;
+  return decryptData(raw) ?? {};
+};

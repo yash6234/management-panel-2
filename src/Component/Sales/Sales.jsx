@@ -111,6 +111,14 @@ export default function Sales() {
     loadDiesel();
   }, [loadSalesMen, loadDiesel]);
 
+ useEffect(() => {
+  if (dieselOptions.length > 0) {
+    setFormData((prev) => ({
+      ...prev,
+      diesel: prev.diesel || dieselOptions[0]._id,
+    }));
+  }
+}, [dieselOptions]);
   const loadSalesForSalesman = useCallback(async (salesmanId, month, year) => {
     if (!salesmanId) {
       setSalesEntries([]);
@@ -130,11 +138,32 @@ export default function Sales() {
       setLoadingSales(false);
     }
   }, [monthYear.month, monthYear.year]);
+
+  const loadSalesTotals = useCallback(async (salesmanId) => {
+  if (!salesmanId) return;
+
+  try {
+
+    const data = await fetchSalesTotals(salesmanId);
+
+    setTotals({
+      totalAmount: Number(data?.total_amount ?? 0),
+      finalPayable: Number(data?.total_payable ?? 0)
+    });
+
+  } catch (err) {
+    console.error("Failed to load totals", err);
+  }
+
+}, []);
+
   useEffect(() => {
     if (step === STEPS.CALENDAR && selectedSalesman?._id) {
       loadSalesForSalesman(selectedSalesman._id, monthYear.month, monthYear.year);
+       loadSalesTotals(selectedSalesman._id);
+
     }
-  }, [step, selectedSalesman?._id, monthYear.month, monthYear.year, loadSalesForSalesman]);
+  }, [step, selectedSalesman?._id, monthYear.month, monthYear.year, loadSalesForSalesman,  loadSalesTotals]);
 
   const toDateStr = (val) => {
     if (!val) return null;
@@ -229,7 +258,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
     setFormData({
       sales_man: selectedSalesman?._id || "",
       date: info.dateStr,
-      diesel: "",
+      diesel: dieselOptions[0]?._id || "",
       amount: "",
       left: 0,
       over: 0,
@@ -328,6 +357,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
           monthYear.month,
           monthYear.year
         );
+        await loadSalesTotals(selectedSalesman._id);
       }
 
     } catch (err) {
@@ -390,7 +420,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
   <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2">
     <span className="text-sm text-gray-600">Total Amount</span>
     <div className="text-lg font-semibold text-green-700">
-      ₹{totalAmount.toLocaleString()}
+      ₹{totals.totalAmount.toLocaleString()}
     </div>
   </div>
 
