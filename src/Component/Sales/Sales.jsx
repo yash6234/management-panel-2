@@ -4,11 +4,11 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import Modal from "../Layout/Modal";
-import { fetchSalesMan, fetchSales, addMonth, addSales } from "./Sales";
+import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales } from "./Sales";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
 
-const STEPS = { GRID: "grid", MONTH: "month", CALENDAR: "calendar" };
+const STEPS = { GRID: "grid", CALENDAR: "calendar" };
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -16,6 +16,7 @@ const MONTHS = [
 
 export default function Sales() {
   const [step, setStep] = useState(STEPS.GRID);
+  const [salesTable, setSalesTable] = useState([]);
   const [salesMen, setSalesMen] = useState([]);
   const [dieselOptions, setDieselOptions] = useState([]);
   const [selectedSalesman, setSelectedSalesman] = useState(null);
@@ -28,10 +29,18 @@ export default function Sales() {
     const d = new Date();
     return { month: d.getMonth() + 1, year: d.getFullYear() };
   });
+  // Per-row month/year for each sales person (keyed by person id)
+  const [rowMonthYear, setRowMonthYear] = useState({});
+  const getRowMonthYear = (personId) => {
+    const d = new Date();
+    const def = { month: d.getMonth() + 1, year: d.getFullYear() };
+    return rowMonthYear[personId] ?? def;
+  };
   const [addMonthSubmitting, setAddMonthSubmitting] = useState(false);
   const [addMonthError, setAddMonthError] = useState(null);
 
   const [showSalesModal, setShowSalesModal] = useState(false);
+  const [viewingSale, setViewingSale] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -61,6 +70,31 @@ export default function Sales() {
       setLoading(false);
     }
   }, []);
+  const loadSalesTable = useCallback(async () => {
+    try {
+      const people = await fetchSalesMen();
+      const rows = [];
+
+      for (const person of people) {
+        const sales = await fetchSales(person._id);
+
+        if (Array.isArray(sales)) {
+          sales.forEach((s) => {
+            rows.push({
+              id: s._id,
+              salesman: person.name,
+              diesel: s.diesel ?? "-",
+              amount: s.amount ?? 0,
+            });
+          });
+        }
+      }
+
+      setSalesTable(rows);
+    } catch (err) {
+      console.error("Failed to load table data", err);
+    }
+  }, []);
 
   const loadDiesel = useCallback(async () => {
     try {
@@ -71,81 +105,117 @@ export default function Sales() {
     }
   }, []);
 
+  const getDieselLabel = useCallback((dieselIdOrName) => {
+    if (dieselIdOrName == null || dieselIdOrName === "") return "—";
+    const idStr = String(dieselIdOrName).trim();
+    const found = dieselOptions.find((d) => String(d._id ?? d.id ?? "") === idStr);
+    return found ? (found.name ?? String(found.amount ?? idStr)) : idStr;
+  }, [dieselOptions]);
+
+  const formatSaleDate = useCallback((val) => {
+    if (val == null) return null;
+    if (typeof val === "string") return val.split("T")[0] || val;
+    if (typeof val === "number" && !isNaN(val)) return new Date(val).toLocaleDateString();
+    if (val instanceof Date && !isNaN(val)) return val.toLocaleDateString();
+    return String(val).slice(0, 10) || null;
+  }, []);
+
+  const getSaleDisplay = useCallback((s) => ({
+    date: formatSaleDate(s.date ?? s.sale_date ?? s.startDate ?? s.createdAt ?? s.day) ?? "—",
+    amount: s.amount != null ? String(s.amount) : s.deposit != null ? String(s.deposit) : "—",
+    diesel: getDieselLabel(s.diesel ?? s.dieselType) || "—",
+    left: s.left != null ? String(s.left) : "—",
+    over: s.over != null ? String(s.over) : "—",
+  }), [formatSaleDate, getDieselLabel]);
+
   useEffect(() => {
     loadSalesMen();
     loadDiesel();
   }, [loadSalesMen, loadDiesel]);
 
-  const loadSalesForSalesman = useCallback(async (salesmanId) => {
+  const loadSalesForSalesman = useCallback(async (salesmanId, month, year) => {
     if (!salesmanId) {
       setSalesEntries([]);
       return;
     }
-
     setLoadingSales(true);
     try {
-      const response = await fetchSales(salesmanId);
-
-      console.log("API Response:", response);
-
-      const salesArray =
-        Array.isArray(response)
-          ? response
-          : Array.isArray(response?.data)
-            ? response.data
-            : [];
-
-      setSalesEntries(salesArray);
-    } catch (err) {
-      console.log(err);
+      const list = await fetchDailySales(
+        salesmanId,
+        month ?? monthYear.month,
+        year ?? monthYear.year
+      );
+      setSalesEntries(Array.isArray(list) ? list : []);
+    } catch {
       setSalesEntries([]);
     } finally {
       setLoadingSales(false);
     }
-  }, []);
+  }, [monthYear.month, monthYear.year]);
   useEffect(() => {
     if (step === STEPS.CALENDAR && selectedSalesman?._id) {
-      loadSalesForSalesman(selectedSalesman._id);
+      loadSalesForSalesman(selectedSalesman._id, monthYear.month, monthYear.year);
     }
-  }, [step, selectedSalesman?._id, loadSalesForSalesman]);
+  }, [step, selectedSalesman?._id, monthYear.month, monthYear.year, loadSalesForSalesman]);
 
   const toDateStr = (val) => {
-    if (val == null) return null;
-    if (typeof val === "string") {
-      const part = val.split("T")[0];
-      return part.length >= 10 ? part.slice(0, 10) : part || null;
-    }
-    if (typeof val === "number" && !isNaN(val))
-      return new Date(val).toISOString().slice(0, 10);
-    if (val instanceof Date && !isNaN(val)) return val.toISOString().slice(0, 10);
-    return null;
+    if (!val) return null;
+
+    const d = new Date(val);
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
   };
 
-  const calendarEvents = salesEntries.map((s) => ({
-    id: s._id,
-    title: `₹${s.amount || 0}`,
-    start: s.date,
-    allDay: true,
-  }));
+  const calendarEvents = salesEntries
+    .map((s, i) => {
+      const dateStr = toDateStr(
+        s.date ?? s.sale_date ?? s.startDate ?? s.createdAt ?? s.day
+      );
+      if (!dateStr) return null;
+      const amount = s.amount ?? s.deposit ?? 0;
+      const left = s.left != null ? s.left : "—";
+      const over = s.over != null ? s.over : "—";
+      return {
+        id: s._id ?? s.id ?? `evt-${i}-${dateStr}`,
+        title: `₹${amount}`,
+        start: dateStr,
+        end: dateStr,
+        allDay: true,
+        extendedProps: { amount, left, over },
+      };
+    })
+    .filter(Boolean);
 
-  const handleSelectPerson = (person) => {
-    setSelectedSalesman(person);
-    setAddMonthError(null);
-    const d = new Date();
-    setMonthYear({ month: d.getMonth() + 1, year: d.getFullYear() });
-    setStep(STEPS.MONTH);
+  const renderEventContent = (eventInfo) => {
+    const { amount, left, over } = eventInfo.event.extendedProps ?? {};
+    return (
+      <div className="flex flex-col gap-0.5 text-left text-xs leading-tight py-1">
+        <div className="block">Amount: ₹{amount ?? "—"}</div>
+        <div className="block">Left: {left ?? "—"}</div>
+        <div className="block">Over: {over ?? "—"}</div>
+      </div>
+    );
   };
 
-  const handleAddMonthSubmit = async (e) => {
+  const handleContinueToCalendar = async (e, person, rowMonth, rowYear) => {
     e.preventDefault();
-    if (!selectedSalesman?._id) return;
+    const targetPerson = person ?? selectedSalesman;
+    if (!targetPerson?._id) return;
+    const month = rowMonth ?? monthYear.month;
+    const year = rowYear ?? monthYear.year;
+    setSelectedSalesman(targetPerson);
+    setMonthYear({ month, year });
     setAddMonthSubmitting(true);
     setAddMonthError(null);
     try {
       await addMonth({
-        sales_man: selectedSalesman._id,
-        month: monthYear.month,
-        year: monthYear.year,
+        sales_man: targetPerson._id,
+        month,
+        year,
       });
       setStep(STEPS.CALENDAR);
     } catch (err) {
@@ -182,6 +252,35 @@ export default function Sales() {
     setShowSalesModal(true);
   };
 
+  const handleEventClick = (info) => {
+    info.jsEvent.preventDefault();
+
+    const eventId = info.event.id;
+
+    const sale = salesEntries.find(
+      (s) => (s._id ?? s.id ?? "").toString() === eventId.toString()
+    );
+
+    if (sale) handleViewSaleDetails(sale);
+  };
+  const handleViewSaleDetails = (sale) => {
+
+    setViewingSale(sale);
+
+    const dateValue = (sale.date ?? sale.sale_date ?? "").split("T")[0];
+
+    setFormData({
+      sales_man: selectedSalesman?._id || "",
+      date: dateValue,
+      diesel: sale.diesel ?? "",
+      amount: sale.amount ?? sale.deposit ?? "",
+      left: sale.left ?? 0,
+      over: sale.over ?? 0,
+    });
+
+    setShowSalesModal(true);
+  };
+
   const ensureMonthThenAddSales = async () => {
     const { sales_man, date, diesel, amount, left, over } = formData;
     if (!sales_man || !date) {
@@ -205,31 +304,63 @@ export default function Sales() {
   };
 
   const handleAddSalesSubmit = async (e) => {
+
     e.preventDefault();
 
-    const newSale = {
-      _id: Date.now(),
-      date: formData.date,
-      amount: formData.amount,
-    };
+    setSubmitting(true);
+    setSubmitError(null);
 
-    setSalesEntries((prev) => [...prev, newSale]);
+    try {
 
-    setShowSalesModal(false);
+      if (viewingSale?._id) {
+
+        // EDIT MODE
+        await addSales({
+          _id: viewingSale._id,
+          date: formData.date,
+          sales_man: formData.sales_man,
+          diesel: formData.diesel,
+          amount: formData.amount,
+          left: formData.left ?? 0,
+          over: formData.over ?? 0,
+        });
+
+      } else {
+
+        // ADD MODE
+        await ensureMonthThenAddSales();
+
+      }
+
+      setShowSalesModal(false);
+      setViewingSale(null);
+
+      if (selectedSalesman?._id) {
+        await loadSalesForSalesman(
+          selectedSalesman._id,
+          monthYear.month,
+          monthYear.year
+        );
+      }
+
+    } catch (err) {
+
+      setSubmitError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save sales"
+      );
+
+    } finally {
+
+      setSubmitting(false);
+
+    }
   };
-  useEffect(() => {
-    console.log("salesEntries:", salesEntries);
-  }, [salesEntries]);
-  useEffect(() => {
-    console.log("calendarEvents:", calendarEvents);
-  }, [calendarEvents]);
 
   const goBack = () => {
-    if (step === STEPS.MONTH) {
-      setSelectedSalesman(null);
+    if (step === STEPS.CALENDAR) {
       setStep(STEPS.GRID);
-    } else if (step === STEPS.CALENDAR) {
-      setStep(STEPS.MONTH);
     }
   };
 
@@ -262,122 +393,43 @@ export default function Sales() {
         </div>
       )}
 
-      {/* Step 1: Grid of sales persons */}
-      {step === STEPS.GRID && (
-        <div className="flex-1 min-h-0 overflow-auto">
-          {/* <p className="text-sm text-gray-600 mb-4">
-            Select a sales person to add month/year and manage sales.
-          </p> */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {salesMen.map((p) => (
-              <button
-                key={p._id}
-                type="button"
-                onClick={() => handleSelectPerson(p)}
-                className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-[#E5E7EB] bg-card hover:border-primary hover:bg-primary/5 hover:shadow-md transition-all w-full aspect-square min-h-0"
-              >
-                <span className="font-medium text-gray-900 truncate w-full text-center">
-                  {p.name ?? "—"}
-                </span>
-                {p.email && (
-                  <span className="text-sm text-gray-500 truncate w-full text-center mt-1">
-                    {p.email}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          {salesMen.length === 0 && !error && (
-            <p className="text-gray-500 text-center py-8">No sales persons found.</p>
-          )}
-        </div>
-      )}
-
-      {/* Step 2: Add month / year */}
-      {step === STEPS.MONTH && selectedSalesman && (
-        <div className="flex-1 flex flex-col">
-          <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-1">
-              Add month for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Select month and year, then continue to the calendar.
-            </p>
-            <form onSubmit={handleAddMonthSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Month
-                </label>
-                <select
-                  value={monthYear.month}
-                  onChange={(e) =>
-                    setMonthYear((prev) => ({
-                      ...prev,
-                      month: parseInt(e.target.value, 10),
-                    }))
-                  }
-                  className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-                >
-                  {MONTHS.map((name, i) => (
-                    <option key={name} value={i + 1}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Year
-                </label>
-                <select
-                  value={monthYear.year}
-                  onChange={(e) =>
-                    setMonthYear((prev) => ({
-                      ...prev,
-                      year: parseInt(e.target.value, 10),
-                    }))
-                  }
-                  className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-                >
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(
-                    (y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-              {addMonthError && (
-                <div className="text-danger text-sm">{addMonthError}</div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="px-4 py-2 border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={addMonthSubmitting}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {addMonthSubmitting ? "Adding…" : "Continue to calendar"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Calendar view */}
+      {/* Calendar view (when step is CALENDAR) */}
       {step === STEPS.CALENDAR && selectedSalesman && (
         <>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
             Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
           </h2>
+
+          <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
+            {loadingSales && salesEntries.length === 0 ? (
+              <p className="text-gray-500 text-sm">Loading sales…</p>
+            ) : salesEntries.length === 0 ? (
+              <p className="text-gray-500 text-sm">No sales yet. Click a date on the calendar to add sales.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {salesEntries.map((s, i) => {
+                  const d = getSaleDisplay(s);
+                  return (
+                    <div
+                      key={s._id ?? s.id ?? i}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleViewSaleDetails(s)}
+                      onKeyDown={(e) => e.key === "Enter" && handleViewSaleDetails(s)}
+                      className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-[#E5E7EB] rounded-lg px-3 py-2 bg-gray-50/50 text-sm cursor-pointer hover:bg-gray-100 hover:border-primary/30 transition-colors"
+                    >
+                      <span className="font-medium text-gray-700">{d.date}</span>
+                      <span><span className="text-gray-500">Amount:</span> {d.amount}</span>
+                      <span><span className="text-gray-500">Diesel:</span> {d.diesel}</span>
+                      <span><span className="text-gray-500">Left:</span> {d.left}</span>
+                      <span><span className="text-gray-500">Over:</span> {d.over}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
             <style>{`
@@ -402,17 +454,152 @@ export default function Sales() {
                   right: "dayGridMonth,timeGridWeek,timeGridDay",
                 }}
                 dateClick={handleDateClick}
+                eventClick={handleEventClick}
                 events={calendarEvents}
+                eventContent={renderEventContent}
                 height="calc(100vh - 10rem)"
                 eventDisplay="block"
-                dayMaxEvents={3}
-                dayMaxEventRows={true}
+                dayMaxEvents={false}
+                dayMaxEventRows={false}
                 dayCellClassNames={() => ["fc-day-addable"]}
               />
             </div>
           </div>
         </>
       )}
+
+      {/* Table: Person name, Email, Month, Year, Continue to calendar (per row) - after calendar UI */}
+      <div className="bg-card rounded-xl border border-[#E5E7EB] overflow-hidden">
+        {addMonthError && (
+          <div className="text-danger text-sm px-4 py-2 bg-red-50 border-b border-red-200">{addMonthError}</div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[500px]">
+            <thead>
+              <tr className="border-b border-[#E5E7EB] bg-gray-50/80">
+                <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Person name</th>
+                <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Email</th>
+                <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Month</th>
+                <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Year</th>
+                <th className="text-left text-sm font-medium text-gray-700 px-4 py-3 w-[180px]">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salesMen.map((p) => {
+                const pid = p._id ?? p.id;
+                const my = getRowMonthYear(pid);
+                return (
+                  <tr key={pid} className="border-b border-[#E5E7EB] hover:bg-gray-50/50">
+                    <td className="px-4 py-3 text-gray-900">{p.name ?? "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{p.email ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={my.month}
+                        onChange={(e) => {
+                          const d = new Date();
+                          const def = { month: d.getMonth() + 1, year: d.getFullYear() };
+                          setRowMonthYear((prev) => ({
+                            ...prev,
+                            [pid]: { ...(prev[pid] ?? def), month: parseInt(e.target.value, 10) },
+                          }));
+                        }}
+                        className="w-full min-w-[100px] px-3 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30 bg-white text-sm"
+                      >
+                        {MONTHS.map((name, i) => (
+                          <option key={name} value={i + 1}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={my.year}
+                        onChange={(e) => {
+                          const d = new Date();
+                          const def = { month: d.getMonth() + 1, year: d.getFullYear() };
+                          setRowMonthYear((prev) => ({
+                            ...prev,
+                            [pid]: { ...(prev[pid] ?? def), year: parseInt(e.target.value, 10) },
+                          }));
+                        }}
+                        className="w-full min-w-[80px] px-3 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30 bg-white text-sm"
+                      >
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(
+                          (y) => (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(e) => handleContinueToCalendar(e, p, my.month, my.year)}
+                        disabled={addMonthSubmitting}
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm whitespace-nowrap"
+                      >
+                        {addMonthSubmitting || submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {salesMen.length === 0 && !error && (
+          <p className="text-gray-500 text-center py-8">No sales persons found.</p>
+        )}
+      </div>
+
+      {/* View sale details modal */}
+      <Modal
+        isOpen={!!viewingSale}
+        onClose={() => setViewingSale(null)}
+        title="Sale details"
+      >
+        {viewingSale && (() => {
+          const d = getSaleDisplay(viewingSale);
+          return (
+            <div className="space-y-4">
+              <div className="grid gap-3 text-sm">
+                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
+                  <span className="text-gray-500">Date</span>
+                  <span className="font-medium text-gray-900">{d.date}</span>
+                </div>
+                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
+                  <span className="text-gray-500">Amount</span>
+                  <span className="font-medium text-gray-900">₹{d.amount}</span>
+                </div>
+                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
+                  <span className="text-gray-500">Diesel</span>
+                  <span className="font-medium text-gray-900">{d.diesel}</span>
+                </div>
+                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
+                  <span className="text-gray-500">Left</span>
+                  <span className="font-medium text-gray-900">{d.left}</span>
+                </div>
+                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
+                  <span className="text-gray-500">Over</span>
+                  <span className="font-medium text-gray-900">{d.over}</span>
+                </div>
+              </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setViewingSale(null)}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* Add Sales modal */}
       <Modal

@@ -267,7 +267,24 @@ Use plain `axios` for auth endpoints that don’t yet have a token.
 
 ---
 
-## 9. File Reference
+## 9. Admin Sales – Sales Man APIs
+
+**Base path:** `${VITE_IP}/admin/sales/sales-man`
+
+Payloads are encrypted and URL-encoded in the `:data` path segment (same pattern as auth/master). Token from cookie is included in the encrypted payload.
+
+| Endpoint | Method | Payload | Description |
+|----------|--------|---------|--------------|
+| `/admin/sales/sales-man/fetch-daily-sales/:data` | GET | `{ salesman_id, month, year }` | Fetch daily sales for a salesman for the given month/year |
+| `/admin/sales/sales-man/fetch-sales/:data` | GET | `{ salesman_id }` | Fetch sales for a salesman |
+| `/admin/sales/sales-man/add-month/:data` | GET | `{ sales_man, month, year }` | Add month for salesman |
+| `/admin/sales/sales-man/add-sales/:data` | GET | `{ date, sales_man, diesel, amount, left, over }` | Add a sales entry |
+
+Implemented in `src/Component/Sales/Sales.js` (`fetchDailySales`, `fetchSales`, `addMonth`, `addSales`).
+
+---
+
+## 10. File Reference
 
 | Purpose | Recommended path |
 |---------|------------------|
@@ -279,7 +296,7 @@ Use plain `axios` for auth endpoints that don’t yet have a token.
 
 ---
 
-## 10. Summary
+## 11. Summary
 
 - **React + Vite**: Use `import.meta.env.VITE_IP` and `import.meta.env.VITE_ENCRYPTION_SECRET`.
 - **HTTP client**: Axios for all API calls.

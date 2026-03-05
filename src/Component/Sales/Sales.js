@@ -6,6 +6,7 @@ import { encryptData, decryptData } from "../../api/enc_dec_admin";
  * Sales page API routes (GET, payload in path :data as encrypted + encoded):
  *   /fetch-sales-man/:data
  *   /sales-man/fetch-sales/:data  { salesman_id }
+ *   /sales-man/fetch-daily-sales/:data  { salesman_id, month, year }
  *   /sales-man/add-month/:data   { sales_man, month, year }
  *   /sales-man/add-sales/:data  { date, sales_man, diesel, amount, left = 0, over = 0 }
  */
@@ -54,7 +55,14 @@ export const addMonth = async ({ sales_man, month, year }) => {
   }
   return response?.data ?? null;
 };
-
+export const fetchDailySales = async (salesman_id, month, year) => {
+  const response = await axios.get(
+    `${baseUrl}/fetch-daily-sales/${createPayload({ salesman_id, month : Number(month), year : Number(year) })}`
+  );
+  console.log(response.data.data);
+  const raw = response.data.data;
+  return decryptData(raw) ?? [];
+};
 /** GET /sales-man/add-sales/:data  Payload: { date, sales_man, diesel, amount, left = 0, over = 0 } */
 export const addSales = async (payload) => {
   const {
