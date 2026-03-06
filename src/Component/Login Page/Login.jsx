@@ -34,6 +34,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="bg-card rounded-2xl shadow-2xl p-8 border border-[#E5E7EB]">
           <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            <img src="/image.png" alt="Shreeji Management" className="w-10 h-10" />
+          </h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             Sign In
           </h1>
           <form onSubmit={handleSubmit} className="space-y-5">

@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import Modal from "../Layout/Modal";
-import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales } from "./Sales";
+import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales, deleteSales, fetchSalesTotals, fetchSalesPerMonth } from "./Sales";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
 
@@ -18,6 +18,9 @@ export default function Sales() {
   const [step, setStep] = useState(STEPS.GRID);
   const [salesTable, setSalesTable] = useState([]);
   const [salesMen, setSalesMen] = useState([]);
+  const [totals, setTotals] = useState({ totalAmount: 0, finalPayable: 0 });
+  const [yearTotals, setYearTotals] = useState({ totalAmount: 0, finalPayable: 0 });
+  const [perMonthData, setPerMonthData] = useState(null);
   const [dieselOptions, setDieselOptions] = useState([]);
   const [selectedSalesman, setSelectedSalesman] = useState(null);
   const [salesEntries, setSalesEntries] = useState([]);
@@ -43,6 +46,7 @@ export default function Sales() {
   const [viewingSale, setViewingSale] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     sales_man: "",
     date: "",
@@ -92,7 +96,7 @@ export default function Sales() {
     if (!val) return null;
 
     if (typeof val === "string") {
-     return val.slice(0, 10);
+      return val.slice(0, 10);
     }
 
     return val;
@@ -111,14 +115,14 @@ export default function Sales() {
     loadDiesel();
   }, [loadSalesMen, loadDiesel]);
 
- useEffect(() => {
-  if (dieselOptions.length > 0) {
-    setFormData((prev) => ({
-      ...prev,
-      diesel: prev.diesel || dieselOptions[0]._id,
-    }));
-  }
-}, [dieselOptions]);
+  useEffect(() => {
+    if (dieselOptions.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        diesel: prev.diesel || dieselOptions[0]._id,
+      }));
+    }
+  }, [dieselOptions]);
   const loadSalesForSalesman = useCallback(async (salesmanId, month, year) => {
     if (!salesmanId) {
       setSalesEntries([]);
@@ -140,30 +144,95 @@ export default function Sales() {
   }, [monthYear.month, monthYear.year]);
 
   const loadSalesTotals = useCallback(async (salesmanId) => {
-  if (!salesmanId) return;
+    if (!salesmanId) return;
+    try {
+      const data = await fetchSalesTotals(salesmanId);
+      const totalAmount = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Number(item?.total_sales ?? 0), 0)
+        : Number(data?.total_amount ?? data?.totalAmount ?? 0);
+      const finalPayable = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Number(item?.final_amount ?? 0), 0)
+        : Number(data?.total_payable ?? data?.finalPayable ?? 0);
+      setTotals({ totalAmount, finalPayable });
+    } catch (err) {
+      console.error("Failed to load totals", err);
+    }
+  }, []);
 
-  try {
+  /** Fetches full-year total amount & total payable (fetchSalesTotals). */
+  const loadYearTotals = useCallback(async (salesmanId) => {
+    if (!salesmanId) return;
+    try {
+      const data = await fetchSalesTotals(salesmanId);
+      const totalAmount = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Number(item?.total_sales ?? 0), 0)
+        : Number(data?.total_amount ?? data?.totalAmount ?? 0);
+      const finalPayable = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Number(item?.final_amount ?? 0), 0)
+        : Number(data?.total_payable ?? data?.finalPayable ?? 0);
+      setYearTotals({ totalAmount, finalPayable });
+    } catch (err) {
+      console.error("Failed to load year totals", err);
+    }
+  }, []);
 
-    const data = await fetchSalesTotals(salesmanId);
-
-    setTotals({
-      totalAmount: Number(data?.total_amount ?? 0),
-      finalPayable: Number(data?.total_payable ?? 0)
-    });
-
-  } catch (err) {
-    console.error("Failed to load totals", err);
-  }
-
-}, []);
+  /** Fetches per-month total & total payable from fetchSalesPerMonth API; month label from backend when provided. */
+  const loadPerMonthTotals = useCallback(async (salesmanId, month, year) => {
+    if (!salesmanId) return;
+    try {
+      const data = await fetchSalesPerMonth(salesmanId, month, year);
+      if (data == null) {
+        setPerMonthData(null);
+        return;
+      }
+      const item = Array.isArray(data) && data.length > 0 ? data[0] : data;
+      if (!item || typeof item !== "object") {
+        setPerMonthData(null);
+        return;
+      }
+      const m = Number(item.month ?? item.month_number ?? month);
+      const y = Number(item.year ?? year);
+      const monthLabel =
+        item.month_name ?? item.monthName ?? item.month_label ?? MONTHS[m - 1];
+      const totalAmount = Number(
+        item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0
+      );
+      const totalPayable = Number(
+        item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0
+      );
+      setTotals({ totalAmount, finalPayable: totalPayable });
+      setPerMonthData({
+        month: m,
+        year: y,
+        monthLabel: `${monthLabel} ${y}`,
+        totalAmount,
+        totalPayable,
+      });
+    } catch (err) {
+      console.error("Failed to load per-month totals", err);
+      setPerMonthData(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (step === STEPS.CALENDAR && selectedSalesman?._id) {
       loadSalesForSalesman(selectedSalesman._id, monthYear.month, monthYear.year);
-       loadSalesTotals(selectedSalesman._id);
-
+      loadPerMonthTotals(
+        selectedSalesman._id,
+        monthYear.month,
+        monthYear.year
+      );
+      loadYearTotals(selectedSalesman._id);
     }
-  }, [step, selectedSalesman?._id, monthYear.month, monthYear.year, loadSalesForSalesman,  loadSalesTotals]);
+  }, [
+    step,
+    selectedSalesman?._id,
+    monthYear.month,
+    monthYear.year,
+    loadSalesForSalesman,
+    loadPerMonthTotals,
+    loadYearTotals,
+  ]);
 
   const toDateStr = (val) => {
     if (!val) return null;
@@ -201,10 +270,10 @@ export default function Sales() {
     })
     .filter(Boolean);
 
-const totalAmount = salesEntries.reduce((sum, s) => {
-  const amt = Number(s.amount ?? s.deposit ?? 0);
-  return sum + (isNaN(amt) ? 0 : amt);
-}, 0);
+  const totalAmount = salesEntries.reduce((sum, s) => {
+    const amt = Number(s.amount ?? s.deposit ?? 0);
+    return sum + (isNaN(amt) ? 0 : amt);
+  }, 0);
   const renderEventContent = (eventInfo) => {
     const { amount, left, over } = eventInfo.event.extendedProps ?? {};
     return (
@@ -255,6 +324,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
   };
 
   const handleDateClick = (info) => {
+    setViewingSale(null);
     setFormData({
       sales_man: selectedSalesman?._id || "",
       date: info.dateStr,
@@ -273,29 +343,46 @@ const totalAmount = salesEntries.reduce((sum, s) => {
     const eventId = info.event.id;
 
     const sale = salesEntries.find(
-      (s) => (s._id ?? s.id ?? "").toString() === eventId.toString()
+      (s) => String(s._id ?? s.id) === String(eventId)
     );
 
-    if (sale) handleViewSaleDetails(sale);
+    if (!sale) return;
+
+    const rawDate = sale.date ?? sale.sale_date ?? "";
+    const dateValue = rawDate.split("T")[0];
+
+    setViewingSale(sale);
+
+    setFormData({
+      sales_man: selectedSalesman?._id || "",
+      date: dateValue,
+      diesel: sale.diesel ?? "",
+      amount: sale.amount ?? sale.deposit ?? "",
+      left: sale.left ?? 0,
+      over: sale.over ?? 0,
+    });
+
+    setSubmitError(null);
+    setShowSalesModal(true);
   };
- const handleViewSaleDetails = (sale) => {
+  // const handleViewSaleDetails = (sale) => {
 
-  const rawDate = sale.date ?? sale.sale_date ?? "";
-  const dateValue = rawDate.split("T")[0];
+  //   const rawDate = sale.date ?? sale.sale_date ?? "";
+  //   const dateValue = rawDate.split("T")[0];
 
-  setViewingSale(sale); // KEEP SALE FOR EDIT MODE
+  //   setViewingSale(sale); // KEEP SALE FOR EDIT MODE
 
-  setFormData({
-    sales_man: selectedSalesman?._id || "",
-    date: dateValue,
-    diesel: sale.diesel ?? "",
-    amount: sale.amount ?? sale.deposit ?? "",
-    left: sale.left ?? 0,
-    over: sale.over ?? 0,
-  });
+  //   setFormData({
+  //     sales_man: selectedSalesman?._id || "",
+  //     date: dateValue,
+  //     diesel: sale.diesel ?? "",
+  //     amount: sale.amount ?? sale.deposit ?? "",
+  //     left: sale.left ?? 0,
+  //     over: sale.over ?? 0,
+  //   });
 
-  setShowSalesModal(true);
-};
+  //   setShowSalesModal(true);
+  // };
 
   const ensureMonthThenAddSales = async () => {
     const { sales_man, date, diesel, amount, left, over } = formData;
@@ -317,6 +404,38 @@ const totalAmount = salesEntries.reduce((sum, s) => {
       left: formData.left ?? 0,
       over: formData.over ?? 0,
     });
+  };
+
+  const handleDeleteSale = async () => {
+    if (!viewingSale?._id) return;
+    setDeleting(true);
+    setSubmitError(null);
+    try {
+      await deleteSales(viewingSale._id);
+      setShowSalesModal(false);
+      setViewingSale(null);
+      if (selectedSalesman?._id) {
+        await loadSalesForSalesman(
+          selectedSalesman._id,
+          monthYear.month,
+          monthYear.year
+        );
+        await loadPerMonthTotals(
+          selectedSalesman._id,
+          monthYear.month,
+          monthYear.year
+        );
+        await loadYearTotals(selectedSalesman._id);
+      }
+    } catch (err) {
+      setSubmitError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete sales entry"
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleAddSalesSubmit = async (e) => {
@@ -357,7 +476,12 @@ const totalAmount = salesEntries.reduce((sum, s) => {
           monthYear.month,
           monthYear.year
         );
-        await loadSalesTotals(selectedSalesman._id);
+        await loadPerMonthTotals(
+          selectedSalesman._id,
+          monthYear.month,
+          monthYear.year
+        );
+        await loadYearTotals(selectedSalesman._id);
       }
 
     } catch (err) {
@@ -372,6 +496,20 @@ const totalAmount = salesEntries.reduce((sum, s) => {
 
       setSubmitting(false);
 
+    }
+  };
+  const handleDatesSet = (info) => {
+    const date = info.view.currentStart;
+
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+
+    setMonthYear({ month, year });
+
+    if (selectedSalesman?._id) {
+      loadSalesForSalesman(selectedSalesman._id, month, year);
+      loadPerMonthTotals(selectedSalesman._id, month, year);
+      loadYearTotals(selectedSalesman._id);
     }
   };
 
@@ -417,12 +555,58 @@ const totalAmount = salesEntries.reduce((sum, s) => {
             Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
           </h2>
 
-  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2">
-    <span className="text-sm text-gray-600">Total Amount</span>
-    <div className="text-lg font-semibold text-green-700">
-      ₹{totals.totalAmount.toLocaleString()}
-    </div>
-  </div>
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Amount
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-green-700">
+                ₹{(totals.totalAmount ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Payable
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-blue-700">
+                ₹{(totals.finalPayable ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Amount <span className="font-medium text-gray-700">— Year {monthYear?.year ?? new Date().getFullYear()}</span>
+              </span>
+              <div className="text-lg font-semibold text-amber-700">
+                ₹{(yearTotals.totalAmount ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Payable <span className="font-medium text-gray-700">— Year {monthYear?.year ?? new Date().getFullYear()}</span>
+              </span>
+              <div className="text-lg font-semibold text-purple-700">
+                ₹{(yearTotals.finalPayable ?? 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
 
           {/* <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
@@ -478,6 +662,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
                   center: "title",
                   right: "dayGridMonth,timeGridWeek,timeGridDay",
                 }}
+                datesSet={handleDatesSet}
                 dateClick={handleDateClick}
                 eventClick={handleEventClick}
                 events={calendarEvents}
@@ -583,7 +768,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
       </div>
 
       {/* View sale details modal */}
-      <Modal
+      {/* <Modal
         isOpen={!!viewingSale}
         onClose={() => setViewingSale(null)}
         title="Sale details"
@@ -626,13 +811,13 @@ const totalAmount = salesEntries.reduce((sum, s) => {
             </div>
           );
         })()}
-      </Modal>
+      </Modal> */}
 
       {/* Add Sales modal */}
       <Modal
         isOpen={showSalesModal}
         onClose={() => setShowSalesModal(false)}
-        title="Add Sales Entry"
+        title={viewingSale ? "Edit Sales Entry" : "Add Sales Entry"}
       >
         <form onSubmit={handleAddSalesSubmit} className="space-y-4">
           <div>
@@ -702,7 +887,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Left
+              Left(ખૂટતા)
             </label>
             <input
               type="number"
@@ -718,7 +903,7 @@ const totalAmount = salesEntries.reduce((sum, s) => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Over
+              Over(વધુ)
             </label>
             <input
               type="number"
@@ -735,21 +920,35 @@ const totalAmount = salesEntries.reduce((sum, s) => {
           {submitError && (
             <div className="text-danger text-sm">{submitError}</div>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowSalesModal(false)}
-              className="px-4 py-2 border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
-            >
-              {submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
-            </button>
+          <div className="flex justify-between gap-2 pt-2">
+            <div className="flex gap-2">
+              {viewingSale?._id && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSale}
+                  disabled={deleting || submitting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSalesModal(false)}
+                className="px-4 py-2 border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || deleting}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              >
+                {submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
+              </button>
+            </div>
           </div>
         </form>
       </Modal>

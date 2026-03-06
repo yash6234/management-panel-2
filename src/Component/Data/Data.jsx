@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import DetailCard from "./DetailCard";
 import { fetchCommissions } from "../Masters/Commission";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
@@ -127,40 +126,76 @@ export default function Data() {
 
         <div className="p-6">
           {activeTab === 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {personalDetails.map((p, i) => (
-                <DetailCard
-                  key={i}
-                  title={p.name}
-                  fields={[
-                    { label: "M.no", value: p.mobile_no },
-                    { label: "Email", value: p.email },
-                    { label: "Address", value: p.address },
-                  ]}
-                />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[500px] border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E5E7EB] bg-gray-50/80">
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Name</th>
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">M.no</th>
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Email</th>
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {personalDetails.map((p, i) => (
+                    <tr key={p._id ?? p.id ?? i} className="border-b border-[#E5E7EB] hover:bg-gray-50/50">
+                      <td className="px-4 py-3 text-gray-900">{p.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.mobile_no ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.email ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.address ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {personalDetails.length === 0 && (
+                <p className="text-gray-500 text-sm py-6 text-center">No personal details.</p>
+              )}
             </div>
           )}
           {activeTab === 1 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {diesel.map((v, i) => (
-                <DetailCard
-                  key={i}
-                  title={v.name}
-                  fields={[{ label: "Amount", value: String(v.amount) }]}
-                />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[300px] border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E5E7EB] bg-gray-50/80">
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Name</th>
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diesel.map((v, i) => (
+                    <tr key={v._id ?? v.id ?? i} className="border-b border-[#E5E7EB] hover:bg-gray-50/50">
+                      <td className="px-4 py-3 text-gray-900">{v.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{v.amount != null ? String(v.amount) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {diesel.length === 0 && (
+                <p className="text-gray-500 text-sm py-6 text-center">No vehicle/diesel data.</p>
+              )}
             </div>
           )}
           {activeTab === 2 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {commission.map((c, i) => (
-                <DetailCard
-                  key={i}
-                  title={c.name}
-                  fields={[{ label: "Amount", value: String(c.amount) }]}
-                />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[300px] border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E5E7EB] bg-gray-50/80">
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Name</th>
+                    <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commission.map((c, i) => (
+                    <tr key={c._id ?? c.id ?? i} className="border-b border-[#E5E7EB] hover:bg-gray-50/50">
+                      <td className="px-4 py-3 text-gray-900">{c.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{c.amount != null ? String(c.amount) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {commission.length === 0 && (
+                <p className="text-gray-500 text-sm py-6 text-center">No commission data.</p>
+              )}
             </div>
           )}
           {activeTab === 3 && (
@@ -172,26 +207,37 @@ export default function Data() {
                 <p className="text-danger text-sm">{salesError}</p>
               )}
               {!salesLoading && !salesError && salesData.length === 0 && (
-                <p className="text-gray-500 text-sm">No sales data.</p>
+                <p className="text-gray-500 text-sm py-6 text-center">No sales data.</p>
               )}
               {!salesLoading && salesData.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {salesData.map((s, i) => {
-                    const d = getSaleDisplay(s);
-                    return (
-                      <DetailCard
-                        key={s._id || s.id || i}
-                        title={s.salesPersonName || "Sales"}
-                        fields={[
-                          { label: "Date", value: d.date },
-                          { label: "Amount", value: d.amount },
-                          { label: "Diesel", value: d.diesel },
-                          { label: "Left", value: d.left },
-                          { label: "Over", value: d.over },
-                        ]}
-                      />
-                    );
-                  })}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#E5E7EB] bg-gray-50/80">
+                        <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Sales Person</th>
+                        <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Date</th>
+                        <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Amount</th>
+                        <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Diesel</th>
+                        <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Left</th>
+                        <th className="text-left text-sm font-medium text-gray-700 px-4 py-3">Over</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salesData.map((s, i) => {
+                        const d = getSaleDisplay(s);
+                        return (
+                          <tr key={s._id ?? s.id ?? i} className="border-b border-[#E5E7EB] hover:bg-gray-50/50">
+                            <td className="px-4 py-3 text-gray-900">{s.salesPersonName ?? "—"}</td>
+                            <td className="px-4 py-3 text-gray-600">{d.date}</td>
+                            <td className="px-4 py-3 text-gray-600">{d.amount}</td>
+                            <td className="px-4 py-3 text-gray-600">{d.diesel}</td>
+                            <td className="px-4 py-3 text-gray-600">{d.left}</td>
+                            <td className="px-4 py-3 text-gray-600">{d.over}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
