@@ -7,6 +7,7 @@ import Modal from "../Layout/Modal";
 import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales, deleteSales, fetchSalesTotals, fetchSalesPerMonth } from "./Sales";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
+import Report from "../Report/Report";
 
 const STEPS = { GRID: "grid", CALENDAR: "calendar" };
 const MONTHS = [
@@ -43,6 +44,7 @@ export default function Sales() {
   const [addMonthError, setAddMonthError] = useState(null);
 
   const [showSalesModal, setShowSalesModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [viewingSale, setViewingSale] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -551,9 +553,18 @@ export default function Sales() {
       {/* Calendar view (when step is CALENDAR) */}
       {step === STEPS.CALENDAR && selectedSalesman && (
         <>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
-          </h2>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowReportModal(true)}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm whitespace-nowrap"
+            >
+              Download Report
+            </button>
+          </div>
 
           <div className="flex flex-wrap gap-4 mb-4">
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
@@ -812,6 +823,24 @@ export default function Sales() {
           );
         })()}
       </Modal> */}
+
+      {/* Report modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Sales Report"
+      >
+        {showReportModal && (
+          <Report
+            salesEntries={salesEntries}
+            totals={totals}
+            selectedSalesman={selectedSalesman}
+            monthYear={monthYear}
+            dieselOptions={dieselOptions}
+            getDieselLabel={getDieselLabel}
+          />
+        )}
+      </Modal>
 
       {/* Add Sales modal */}
       <Modal

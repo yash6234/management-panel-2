@@ -11,6 +11,7 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     if (!email || !password) {
       setError("Email and password are required");
@@ -20,6 +21,7 @@ export default function Login() {
     try {
       const result = await login({ email, password });
       if (result?.success) {
+        localStorage.setItem("token", result.token);
         navigate("/dashboard");
       } else {
         setError(result?.msg || "Failed to login");
