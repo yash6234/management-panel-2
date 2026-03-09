@@ -154,6 +154,8 @@ export default function Sales() {
 
     try {
       const data = await fetchSalesTotals(salesmanId);
+    console.log(data);
+    
 
       let totalAmount = 0;
       let finalPayable = 0;
@@ -298,6 +300,40 @@ export default function Sales() {
     const amt = Number(s.amount ?? s.deposit ?? 0);
     return sum + (isNaN(amt) ? 0 : amt);
   }, 0);
+
+useEffect(() => {
+
+  let totalDiesel = 0;
+  let totalLeft = 0;
+  let totalOver = 0;
+
+  salesEntries.forEach((sale) => {
+
+    totalLeft += Number(sale.left ?? 0);
+    totalOver += Number(sale.over ?? 0);
+
+    if (sale.diesel) {
+
+      const dieselObj = dieselOptions.find(
+        (d) => String(d._id) === String(sale.diesel)
+      );
+
+      if (dieselObj) {
+        totalDiesel += Number(dieselObj.amount ?? 0);
+      }
+
+    }
+
+  });
+
+  setExtraTotals({
+    totalDiesel,
+    totalLeft,
+    totalOver
+  });
+
+}, [salesEntries, dieselOptions]);
+
   const renderEventContent = (eventInfo) => {
     const { amount, left, over } = eventInfo.event.extendedProps ?? {};
     return (
@@ -643,57 +679,106 @@ export default function Sales() {
           </div>
 
           <div className="flex flex-wrap gap-4 mb-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Amount
-                {perMonthData?.monthLabel && (
-                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-                )}
-                {!perMonthData?.monthLabel && monthYear?.month && (
-                  <span className="font-medium text-gray-700">
-                    {" "}
-                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
-                  </span>
-                )}
-              </span>
-              <div className="text-lg font-semibold text-green-700">
-                ₹{(totals.totalAmount ?? 0).toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Payable
-                {perMonthData?.monthLabel && (
-                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-                )}
-                {!perMonthData?.monthLabel && monthYear?.month && (
-                  <span className="font-medium text-gray-700">
-                    {" "}
-                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
-                  </span>
-                )}
-              </span>
-              <div className="text-lg font-semibold text-blue-700">
-                ₹{(totals.finalPayable ?? 0).toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Amount <span className="font-medium text-gray-700">— Year {monthYear?.year ?? new Date().getFullYear()}</span>
-              </span>
-              <div className="text-lg font-semibold text-amber-700">
-                ₹{(yearTotals.totalAmount ?? 0).toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Payable <span className="font-medium text-gray-700">— Year {monthYear?.year ?? new Date().getFullYear()}</span>
-              </span>
-              <div className="text-lg font-semibold text-purple-700">
-                ₹{(yearTotals.finalPayable ?? 0).toLocaleString()}
-              </div>
-            </div>
-          </div>
+
+  {/* Monthly Total Amount */}
+  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
+    <span className="text-sm text-gray-600 block">
+      Total Amount
+      {perMonthData?.monthLabel && (
+        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+      )}
+      {!perMonthData?.monthLabel && monthYear?.month && (
+        <span className="font-medium text-gray-700">
+          {" "}
+          — {MONTHS[monthYear.month - 1]} {monthYear.year}
+        </span>
+      )}
+    </span>
+    <div className="text-lg font-semibold text-green-700">
+      ₹{(totals.totalAmount ?? 0).toLocaleString()}
+    </div>
+  </div>
+
+  {/* Monthly Total Payable */}
+  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
+    <span className="text-sm text-gray-600 block">
+      Total Payable
+      {perMonthData?.monthLabel && (
+        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+      )}
+      {!perMonthData?.monthLabel && monthYear?.month && (
+        <span className="font-medium text-gray-700">
+          {" "}
+          — {MONTHS[monthYear.month - 1]} {monthYear.year}
+        </span>
+      )}
+    </span>
+    <div className="text-lg font-semibold text-blue-700">
+      ₹{(totals.finalPayable ?? 0).toLocaleString()}
+    </div>
+  </div>
+
+  {/* Monthly Total Diesel */}
+  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 min-w-[180px]">
+    <span className="text-sm text-gray-600 block">
+      Total Diesel
+      {perMonthData?.monthLabel && (
+        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+      )}
+      {!perMonthData?.monthLabel && monthYear?.month && (
+        <span className="font-medium text-gray-700">
+          {" "}
+          — {MONTHS[monthYear.month - 1]} {monthYear.year}
+        </span>
+      )}
+    </span>
+    <div className="text-lg font-semibold text-yellow-700">
+      {(extraTotals.totalDiesel ?? 0).toLocaleString()}
+    </div>
+  </div>
+
+  {/* Monthly Total Left */}
+  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 min-w-[180px]">
+    <span className="text-sm text-gray-600 block">
+      Total Left
+      {perMonthData?.monthLabel && (
+        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+      )}
+      {!perMonthData?.monthLabel && monthYear?.month && (
+        <span className="font-medium text-gray-700">
+          {" "}
+          — {MONTHS[monthYear.month - 1]} {monthYear.year}
+        </span>
+      )}
+    </span>
+    <div className="text-lg font-semibold text-red-700">
+      {(extraTotals.totalLeft ?? 0).toLocaleString()}
+    </div>
+  </div>
+
+  {/* Monthly Total Over */}
+  <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 min-w-[180px]">
+    <span className="text-sm text-gray-600 block">
+      Total Over
+      {perMonthData?.monthLabel && (
+        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+      )}
+      {!perMonthData?.monthLabel && monthYear?.month && (
+        <span className="font-medium text-gray-700">
+          {" "}
+          — {MONTHS[monthYear.month - 1]} {monthYear.year}
+        </span>
+      )}
+    </span>
+    <div className="text-lg font-semibold text-indigo-700">
+      {(extraTotals.totalOver ?? 0).toLocaleString()}
+    </div>
+  </div>
+
+  {/* Year Total Amount */}
+  
+
+</div>
 
           {/* <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
@@ -761,8 +846,10 @@ export default function Sales() {
                 dayCellClassNames={() => ["fc-day-addable"]}
               />
             </div>
+            
           </div>
         </>
+        
       )}
 
 
