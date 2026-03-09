@@ -3,7 +3,7 @@ import { Users, Truck, Briefcase, ShoppingCart } from "lucide-react";
 import { fetchCommissions } from "../Masters/Commission";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
-import { fetchSalesMan, fetchSales } from "../Sales/Sales";
+import { fetchSalesMan, fetchDailySales } from "../Sales/Sales";
 import { statCards, formatDate } from "./Dashboard";
 
 const iconMap = {
@@ -43,27 +43,29 @@ export default function Dashboard() {
       }
       people = Array.isArray(people) ? people : [];
       const allSales = [];
+      const now = new Date();
+      const monthsToFetch = [];
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        monthsToFetch.push({ month: d.getMonth() + 1, year: d.getFullYear() });
+      }
       for (const person of people) {
         const id = person._id;
         const name = person.name ?? person.email ?? "—";
-        try {
-          const result = await fetchSales(id);
-          const list = Array.isArray(result)
-            ? result
-            : Array.isArray(result?.list)
-              ? result.list
-              : Array.isArray(result?.data)
-                ? result.data
-                : [];
-          list.forEach((s) => {
-            allSales.push({
-              ...s,
-              salesPersonName: name,
-              salesPersonId: id,
+        for (const { month, year } of monthsToFetch) {
+          try {
+            const list = await fetchDailySales(id, month, year);
+            const items = Array.isArray(list) ? list : [];
+            items.forEach((s) => {
+              allSales.push({
+                ...s,
+                salesPersonName: name,
+                salesPersonId: id,
+              });
             });
-          });
-        } catch {
-          // skip
+          } catch {
+            // skip
+          }
         }
       }
       allSales.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -81,6 +83,16 @@ export default function Dashboard() {
   }, [loadDashboardData]);
 
   const counts = [persons.length, diesel.length, commission.length, salesCount];
+
+  const getDieselLabel = (dieselIdOrName) => {
+    if (dieselIdOrName == null || dieselIdOrName === "") return "—";
+    if (typeof dieselIdOrName === "object") {
+      return dieselIdOrName.name ?? dieselIdOrName.amount ?? "—";
+    }
+    const idStr = String(dieselIdOrName).trim();
+    const found = diesel.find((d) => String(d._id ?? d.id ?? "") === idStr);
+    return found ? (found.name ?? String(found.amount ?? idStr)) : idStr;
+  };
 
   return (
     <div className="space-y-6">
@@ -154,11 +166,11 @@ export default function Dashboard() {
                           {row.date ? formatDate(row.date) : "—"}
                         </td>
                         <td className="px-6 py-4 text-gray-600">
-                          {row.diesel ?? "—"}
+                          {getDieselLabel(row.diesel ?? row.dieselType) ?? "—"}
                         </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex px-2 py-1 text-sm font-medium rounded-full bg-success/15 text-success">
-                            ₹{row.amount ?? 0}
+                            ₹{row.amount ?? row.deposit ?? row.total_sales ?? 0}
                           </span>
                         </td>
                       </tr>

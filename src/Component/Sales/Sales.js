@@ -93,6 +93,39 @@ export const addSales = async (payload) => {
   }
   return response?.data.data ?? null;
 };
+/** GET /sales-man/edit-sales/:data  Payload: { _id, date, sales_man, diesel, amount, left, over } */
+export const editSales = async (payload) => {
+  const {
+    id,
+    date,
+    sales_man,
+    diesel,
+    amount,
+    left = 0,
+    over = 0,
+  } = payload;
+  
+  const response = await axios.get(
+    `${baseUrl}/edit-sales/${createPayload({
+     id,
+     date,
+     sales_man,
+     diesel: diesel ?? "",
+     amount: Number(amount),
+     left: Number(left),
+     over: Number(over),
+    })}`
+  );
+  const raw = response?.data?.data;
+  if (raw != null && typeof raw === "string") {
+    try {
+      return decryptData(raw);
+    } catch {
+      // Backend may return plain JSON; use as-is
+    }
+  }
+  return response?.data?.data ?? null;
+};
 export const deleteSales = async (_id) => {
   const response = await axios.get(
     `${baseUrl}/delete-sales/${createPayload({ _id })}`
@@ -108,6 +141,7 @@ export const deleteSales = async (_id) => {
   }
   return false;
 };
+
 
 
 export const fetchSalesTotals = async (salesman_id) => {

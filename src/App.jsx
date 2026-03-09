@@ -17,7 +17,6 @@ function App() {
           element={
 
             <Layout />
-
           }
         >
           <Route index element={<Dashboard />} />

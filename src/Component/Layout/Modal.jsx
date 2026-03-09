@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 
-export default function Modal({ isOpen, onClose, title, children }) {
+export default function Modal({ isOpen, onClose, title, children, cardClassName = "", titleSize = "text-lg", contentPadding = "p-4" }) {
   if (!isOpen) return null;
 
   return (
@@ -10,9 +10,9 @@ export default function Modal({ isOpen, onClose, title, children }) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative bg-card rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col border border-[#E5E7EB]">
-        <div className="flex items-center justify-between p-4 border-b border-[#E5E7EB]">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      <div className={`relative bg-card rounded-xl shadow-xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-[#E5E7EB] ${cardClassName.trim() || "max-w-lg"}`}>
+        <div className={`flex items-center justify-between border-b border-[#E5E7EB] ${contentPadding}`}>
+          <h3 className={`font-semibold text-gray-900 ${titleSize}`}>{title}</h3>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
@@ -21,7 +21,7 @@ export default function Modal({ isOpen, onClose, title, children }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4 overflow-y-auto flex-1">{children}</div>
+        <div className={`overflow-y-auto flex-1 ${contentPadding}`}>{children}</div>
       </div>
     </div>
   );
