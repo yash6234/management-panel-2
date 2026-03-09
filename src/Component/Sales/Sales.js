@@ -148,7 +148,6 @@ export const fetchSalesTotals = async (salesman_id) => {
   const response = await axios.get(
     `${baseUrl}/fetch-sales/${createPayload({ salesman_id })}`
   );
-console.log("fetchSalesTotals", response.data.data);
   const raw = response.data.data;
   return decryptData(raw) ?? {};
 };
@@ -157,7 +156,6 @@ export const fetchSalesPerMonth = async (salesman_id, month, year) => {
   const response = await axios.get(
     `${baseUrl}/fetch-sales-per-month/${createPayload({ salesman_id, month : Number(month), year : Number(year) })}`
   );
-  console.log("fetchSalesPerMonth", response.data.data);
   const raw = response.data.data;
   return decryptData(raw) ?? {};
 };

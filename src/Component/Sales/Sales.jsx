@@ -28,7 +28,11 @@ export default function Sales() {
   const [loading, setLoading] = useState(true);
   const [loadingSales, setLoadingSales] = useState(false);
   const [error, setError] = useState(null);
-
+  const [extraTotals, setExtraTotals] = useState({
+    totalDiesel: 0,
+    totalLeft: 0,
+    totalOver: 0,
+  });
   const [monthYear, setMonthYear] = useState(() => {
     const d = new Date();
     return { month: d.getMonth() + 1, year: d.getFullYear() };
@@ -147,15 +151,39 @@ export default function Sales() {
 
   const loadSalesTotals = useCallback(async (salesmanId) => {
     if (!salesmanId) return;
+
     try {
       const data = await fetchSalesTotals(salesmanId);
-      const totalAmount = Array.isArray(data)
-        ? data.reduce((sum, item) => sum + Number(item?.total_sales ?? 0), 0)
-        : Number(data?.total_amount ?? data?.totalAmount ?? 0);
-      const finalPayable = Array.isArray(data)
-        ? data.reduce((sum, item) => sum + Number(item?.final_amount ?? 0), 0)
-        : Number(data?.total_payable ?? data?.finalPayable ?? 0);
+
+      let totalAmount = 0;
+      let finalPayable = 0;
+      let totalDiesel = 0;
+      let totalLeft = 0;
+      let totalOver = 0;
+
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          totalAmount += Number(item?.total_sales ?? 0);
+          finalPayable += Number(item?.final_amount ?? 0);
+          totalDiesel += Number(item?.diesel ?? 0);
+          totalLeft += Number(item?.left ?? 0);
+          totalOver += Number(item?.over ?? 0);
+        });
+      } else {
+        totalAmount = Number(data?.total_amount ?? data?.totalAmount ?? 0);
+        finalPayable = Number(data?.total_payable ?? data?.finalPayable ?? 0);
+        totalDiesel = Number(data?.total_diesel ?? 0);
+        totalLeft = Number(data?.total_left ?? 0);
+        totalOver = Number(data?.total_over ?? 0);
+      }
+
       setTotals({ totalAmount, finalPayable });
+      setExtraTotals({
+        totalDiesel,
+        totalLeft,
+        totalOver,
+      });
+
     } catch (err) {
       console.error("Failed to load totals", err);
     }
@@ -219,21 +247,15 @@ export default function Sales() {
   useEffect(() => {
     if (step === STEPS.CALENDAR && selectedSalesman?._id) {
       loadSalesForSalesman(selectedSalesman._id, monthYear.month, monthYear.year);
-      loadPerMonthTotals(
-        selectedSalesman._id,
-        monthYear.month,
-        monthYear.year
-      );
+      loadPerMonthTotals(selectedSalesman._id, monthYear.month, monthYear.year);
       loadYearTotals(selectedSalesman._id);
+      loadSalesTotals(selectedSalesman._id);
     }
   }, [
     step,
     selectedSalesman?._id,
     monthYear.month,
     monthYear.year,
-    loadSalesForSalesman,
-    loadPerMonthTotals,
-    loadYearTotals,
   ]);
 
   const toDateStr = (val) => {

@@ -46,10 +46,10 @@ export default function Report({
     ? `${MONTHS[monthYear.month - 1]} ${monthYear?.year ?? ""}`
     : "";
 
-    const totalDiesel = salesEntries.reduce((sum, s) => {
-  const dieselAmount = Number(s.diesel_amount ?? 0);
-  return sum + dieselAmount;
-}, 0);
+  const totalDiesel = salesEntries.reduce((sum, s) => {
+    const dieselAmount = Number(s.diesel_amount ?? 0);
+    return sum + dieselAmount;
+  }, 0);
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
@@ -62,23 +62,23 @@ export default function Report({
 
     const headers = [["Date", "Sale", "Left", "Over", "Diesel"]];
     const rows = [...salesEntries]
-  .sort((a, b) => {
-    const dateA = new Date(a.date ?? a.sale_date ?? a.startDate ?? a.createdAt ?? a.day);
-    const dateB = new Date(b.date ?? b.sale_date ?? b.startDate ?? b.createdAt ?? b.day);
-    return dateA - dateB; // ascending order (1 → 31)
-  })
-  .map((s) => {
-    const dieselName = getDieselLabel(s.diesel ?? s.dieselType);
-    const dieselAmount = s.diesel_amount ?? 0;
+      .sort((a, b) => {
+        const dateA = new Date(a.date ?? a.sale_date ?? a.startDate ?? a.createdAt ?? a.day);
+        const dateB = new Date(b.date ?? b.sale_date ?? b.startDate ?? b.createdAt ?? b.day);
+        return dateA - dateB; // ascending order (1 → 31)
+      })
+      .map((s) => {
+        const dieselName = getDieselLabel(s.diesel ?? s.dieselType);
+        const dieselAmount = s.diesel_amount ?? 0;
 
-    return [
-      formatDate(s.date ?? s.sale_date ?? s.startDate ?? s.createdAt ?? s.day),
-      Number(s.amount ?? s.deposit ?? 0).toLocaleString("en-IN"),
-      Number(s.left ?? 0).toLocaleString("en-IN"),
-      Number(s.over ?? 0).toLocaleString("en-IN"),
-      `${dieselName}-${dieselAmount}`
-    ];
-  });
+        return [
+          formatDate(s.date ?? s.sale_date ?? s.startDate ?? s.createdAt ?? s.day),
+          Number(s.amount ?? s.deposit ?? 0).toLocaleString("en-IN"),
+          Number(s.left ?? 0).toLocaleString("en-IN"),
+          Number(s.over ?? 0).toLocaleString("en-IN"),
+          `${dieselName}-${dieselAmount}`
+        ];
+      });
 
     const footRows = [
       ["Total Sale", totalSaleFormatted, "", "", ""],
@@ -95,41 +95,41 @@ export default function Report({
     doc.setFont("helvetica", "normal");
     doc.text(`${salesmanName}${monthLabel ? ` — ${monthLabel}` : ""}`, margin, 18);
 
-     autoTable(doc, {
-  startY: 24,
-  head: headers,
-  body: rows,
-  theme: "grid",
-  styles: {
-    fontSize: 9,
-    cellPadding: 3,
-  },
-  headStyles: {
-    fillColor: [41, 98, 255],
-    textColor: 255,
-    fontStyle: "bold",
-    halign: "center",   // ✅ CENTER HEADER TEXT
-    valign: "middle"
-  },
-  columnStyles: {
-    0: { cellWidth: 40 },                 // Date
-    1: { halign: "center", cellWidth: 40 },// Sale
-    2: { halign: "center", cellWidth: 35 },// Left
-    3: { halign: "center", cellWidth: 35 },// Over
-    4: { halign: "center", cellWidth: 50 }, // Diesel
-  },
-  margin: { left: margin, right: margin },
-});
+    autoTable(doc, {
+      startY: 24,
+      head: headers,
+      body: rows,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [41, 98, 255],
+        textColor: 255,
+        fontStyle: "bold",
+        halign: "center",   // ✅ CENTER HEADER TEXT
+        valign: "middle"
+      },
+      columnStyles: {
+        0: { cellWidth: 40 },                 // Date
+        1: { halign: "center", cellWidth: 40 },// Sale
+        2: { halign: "center", cellWidth: 35 },// Left
+        3: { halign: "center", cellWidth: 35 },// Over
+        4: { halign: "center", cellWidth: 50 }, // Diesel
+      },
+      margin: { left: margin, right: margin },
+    });
     const finalY = doc.lastAutoTable.finalY + 10;
 
     doc.setFontSize(11);
-doc.setFont("helvetica", "bold");
+    doc.setFont("helvetica", "bold");
 
-doc.text(`Total Sale : Rs. ${totalSaleStr}`, margin, finalY);
-doc.text(`Total Left : ${totalLeft.toLocaleString("en-IN")}`, margin, finalY + 7);
-doc.text(`Total Over : ${totalOver.toLocaleString("en-IN")}`, margin, finalY + 14);
-doc.text(`Total Diesel : Rs. ${totalDiesel.toLocaleString("en-IN")}`, margin, finalY + 21);
-doc.text(`Payable Amount : Rs. ${payableStr}`, margin, finalY + 28);
+    doc.text(`Total Sale : Rs. ${totalSaleStr}`, margin, finalY);
+    doc.text(`Total Left : ${totalLeft.toLocaleString("en-IN")}`, margin, finalY + 7);
+    doc.text(`Total Over : ${totalOver.toLocaleString("en-IN")}`, margin, finalY + 14);
+    doc.text(`Total Diesel : Rs. ${totalDiesel.toLocaleString("en-IN")}`, margin, finalY + 21);
+    doc.text(`Payable Amount : Rs. ${payableStr}`, margin, finalY + 28);
 
     doc.save(`sales-report-${salesmanName.replace(/\s+/g, "-")}-${monthLabel.replace(/\s+/g, "-") || "report"}.pdf`);
   };
