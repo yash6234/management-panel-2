@@ -149,47 +149,7 @@ export default function Sales() {
     }
   }, [monthYear.month, monthYear.year]);
 
-  const loadSalesTotals = useCallback(async (salesmanId) => {
-    if (!salesmanId) return;
 
-    try {
-      const data = await fetchSalesTotals(salesmanId);
-    console.log(data);
-    
-
-      let totalAmount = 0;
-      let finalPayable = 0;
-      let totalDiesel = 0;
-      let totalLeft = 0;
-      let totalOver = 0;
-
-      if (Array.isArray(data)) {
-        data.forEach((item) => {
-          totalAmount += Number(item?.total_sales ?? 0);
-          finalPayable += Number(item?.final_amount ?? 0);
-          totalDiesel += Number(item?.diesel ?? 0);
-          totalLeft += Number(item?.left ?? 0);
-          totalOver += Number(item?.over ?? 0);
-        });
-      } else {
-        totalAmount = Number(data?.total_amount ?? data?.totalAmount ?? 0);
-        finalPayable = Number(data?.total_payable ?? data?.finalPayable ?? 0);
-        totalDiesel = Number(data?.total_diesel ?? 0);
-        totalLeft = Number(data?.total_left ?? 0);
-        totalOver = Number(data?.total_over ?? 0);
-      }
-
-      setTotals({ totalAmount, finalPayable });
-      setExtraTotals({
-        totalDiesel,
-        totalLeft,
-        totalOver,
-      });
-
-    } catch (err) {
-      console.error("Failed to load totals", err);
-    }
-  }, []);
 
   /** Fetches full-year total amount & total payable (fetchSalesTotals). */
   const loadYearTotals = useCallback(async (salesmanId) => {
@@ -213,6 +173,7 @@ export default function Sales() {
     if (!salesmanId) return;
     try {
       const data = await fetchSalesPerMonth(salesmanId, month, year);
+      console.log("PER MONTH API RESPONSE:", data);
       if (data == null) {
         setPerMonthData(null);
         return;
@@ -226,19 +187,16 @@ export default function Sales() {
       const y = Number(item.year ?? year);
       const monthLabel =
         item.month_name ?? item.monthName ?? item.month_label ?? MONTHS[m - 1];
-      const totalAmount = Number(
-        item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0
-      );
-      const totalPayable = Number(
-        item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0
-      );
-      setTotals({ totalAmount, finalPayable: totalPayable });
+      setTotals({
+        totalAmount: Number(item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0),
+        finalPayable: Number(item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0)
+      });
       setPerMonthData({
         month: m,
         year: y,
         monthLabel: `${monthLabel} ${y}`,
-        totalAmount,
-        totalPayable,
+        totalAmount: Number(item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0),
+        totalPayable: Number(item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0)
       });
     } catch (err) {
       console.error("Failed to load per-month totals", err);
@@ -251,7 +209,7 @@ export default function Sales() {
       loadSalesForSalesman(selectedSalesman._id, monthYear.month, monthYear.year);
       loadPerMonthTotals(selectedSalesman._id, monthYear.month, monthYear.year);
       loadYearTotals(selectedSalesman._id);
-      loadSalesTotals(selectedSalesman._id);
+
     }
   }, [
     step,
@@ -296,43 +254,38 @@ export default function Sales() {
     })
     .filter(Boolean);
 
-  const totalAmount = salesEntries.reduce((sum, s) => {
-    const amt = Number(s.amount ?? s.deposit ?? 0);
-    return sum + (isNaN(amt) ? 0 : amt);
-  }, 0);
+  useEffect(() => {
 
-useEffect(() => {
+    let totalDiesel = 0;
+    let totalLeft = 0;
+    let totalOver = 0;
 
-  let totalDiesel = 0;
-  let totalLeft = 0;
-  let totalOver = 0;
+    salesEntries.forEach((sale) => {
 
-  salesEntries.forEach((sale) => {
+      totalLeft += Number(sale.left ?? 0);
+      totalOver += Number(sale.over ?? 0);
 
-    totalLeft += Number(sale.left ?? 0);
-    totalOver += Number(sale.over ?? 0);
+      if (sale.diesel) {
 
-    if (sale.diesel) {
+        const dieselObj = dieselOptions.find(
+          (d) => String(d._id) === String(sale.diesel)
+        );
 
-      const dieselObj = dieselOptions.find(
-        (d) => String(d._id) === String(sale.diesel)
-      );
+        if (dieselObj) {
+          totalDiesel += Number(dieselObj.amount ?? 0);
+        }
 
-      if (dieselObj) {
-        totalDiesel += Number(dieselObj.amount ?? 0);
       }
 
-    }
+    });
 
-  });
+    setExtraTotals({
+      totalDiesel,
+      totalLeft,
+      totalOver
+    });
 
-  setExtraTotals({
-    totalDiesel,
-    totalLeft,
-    totalOver
-  });
-
-}, [salesEntries, dieselOptions]);
+  }, [salesEntries, dieselOptions]);
 
   const renderEventContent = (eventInfo) => {
     const { amount, left, over } = eventInfo.event.extendedProps ?? {};
@@ -665,7 +618,7 @@ useEffect(() => {
       {/* Calendar view (when step is CALENDAR) */}
       {step === STEPS.CALENDAR && selectedSalesman && (
         <>
-          <div className="flex items-center justify-between gap-4 mb-2">
+          <div className="flex items-center justify-between gap-4 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
             </h2>
@@ -678,107 +631,105 @@ useEffect(() => {
             </button>
           </div>
 
+          {/* Per month total sale — above calendar */}
+          <p className="text-sm font-medium text-gray-700 mb-2">
+            Per month total sale — {perMonthData?.monthLabel ?? (monthYear?.month ? `${MONTHS[monthYear.month - 1]} ${monthYear.year}` : "Month")}
+          </p>
           <div className="flex flex-wrap gap-4 mb-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Amount
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-green-700">
+                ₹{(totals.totalAmount ?? 0).toLocaleString()}
+              </div>
+            </div>
 
-  {/* Monthly Total Amount */}
-  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
-    <span className="text-sm text-gray-600 block">
-      Total Amount
-      {perMonthData?.monthLabel && (
-        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-      )}
-      {!perMonthData?.monthLabel && monthYear?.month && (
-        <span className="font-medium text-gray-700">
-          {" "}
-          — {MONTHS[monthYear.month - 1]} {monthYear.year}
-        </span>
-      )}
-    </span>
-    <div className="text-lg font-semibold text-green-700">
-      ₹{(totals.totalAmount ?? 0).toLocaleString()}
-    </div>
-  </div>
+            {/* Monthly Total Payable */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Payable (આપવાના)
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-blue-700">
+                ₹{(totals.finalPayable ?? 0).toLocaleString()}
+              </div>
+            </div>
 
-  {/* Monthly Total Payable */}
-  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
-    <span className="text-sm text-gray-600 block">
-      Total Payable
-      {perMonthData?.monthLabel && (
-        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-      )}
-      {!perMonthData?.monthLabel && monthYear?.month && (
-        <span className="font-medium text-gray-700">
-          {" "}
-          — {MONTHS[monthYear.month - 1]} {monthYear.year}
-        </span>
-      )}
-    </span>
-    <div className="text-lg font-semibold text-blue-700">
-      ₹{(totals.finalPayable ?? 0).toLocaleString()}
-    </div>
-  </div>
+            {/* Monthly Total Diesel */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Diesel
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-yellow-700">
+                ₹{(extraTotals.totalDiesel ?? 0).toLocaleString()}
+              </div>
+            </div>
 
-  {/* Monthly Total Diesel */}
-  <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 min-w-[180px]">
-    <span className="text-sm text-gray-600 block">
-      Total Diesel
-      {perMonthData?.monthLabel && (
-        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-      )}
-      {!perMonthData?.monthLabel && monthYear?.month && (
-        <span className="font-medium text-gray-700">
-          {" "}
-          — {MONTHS[monthYear.month - 1]} {monthYear.year}
-        </span>
-      )}
-    </span>
-    <div className="text-lg font-semibold text-yellow-700">
-      {(extraTotals.totalDiesel ?? 0).toLocaleString()}
-    </div>
-  </div>
+            {/* Monthly Total Left */}
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Left
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-red-700">
+                ₹{(extraTotals.totalLeft ?? 0).toLocaleString()}
+              </div>
+            </div>
 
-  {/* Monthly Total Left */}
-  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 min-w-[180px]">
-    <span className="text-sm text-gray-600 block">
-      Total Left
-      {perMonthData?.monthLabel && (
-        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-      )}
-      {!perMonthData?.monthLabel && monthYear?.month && (
-        <span className="font-medium text-gray-700">
-          {" "}
-          — {MONTHS[monthYear.month - 1]} {monthYear.year}
-        </span>
-      )}
-    </span>
-    <div className="text-lg font-semibold text-red-700">
-      {(extraTotals.totalLeft ?? 0).toLocaleString()}
-    </div>
-  </div>
-
-  {/* Monthly Total Over */}
-  <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 min-w-[180px]">
-    <span className="text-sm text-gray-600 block">
-      Total Over
-      {perMonthData?.monthLabel && (
-        <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-      )}
-      {!perMonthData?.monthLabel && monthYear?.month && (
-        <span className="font-medium text-gray-700">
-          {" "}
-          — {MONTHS[monthYear.month - 1]} {monthYear.year}
-        </span>
-      )}
-    </span>
-    <div className="text-lg font-semibold text-indigo-700">
-      {(extraTotals.totalOver ?? 0).toLocaleString()}
-    </div>
-  </div>
-
-  {/* Year Total Amount */}
-  
-
-</div>
+            {/* Monthly Total Over */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Over
+                {perMonthData?.monthLabel && (
+                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
+                )}
+                {!perMonthData?.monthLabel && monthYear?.month && (
+                  <span className="font-medium text-gray-700">
+                    {" "}
+                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
+                  </span>
+                )}
+              </span>
+              <div className="text-lg font-semibold text-indigo-700">
+                ₹{(extraTotals.totalOver ?? 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
 
           {/* <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
@@ -846,10 +797,39 @@ useEffect(() => {
                 dayCellClassNames={() => ["fc-day-addable"]}
               />
             </div>
-            
+
+          </div>
+
+          {/* Year-wise totals — after calendar UI */}
+          <p className="text-sm font-medium text-gray-700 mt-4 mb-2">
+            Year-wise totals — Year {monthYear?.year ?? new Date().getFullYear()}
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Amount
+                <span className="font-medium text-gray-700">
+                  {" "}— Year {monthYear?.year ?? new Date().getFullYear()}
+                </span>
+              </span>
+              <div className="text-lg font-semibold text-amber-700">
+                ₹{(yearTotals.totalAmount ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Payable (આપવાના)
+                <span className="font-medium text-gray-700">
+                  {" "}— Year {monthYear?.year ?? new Date().getFullYear()}
+                </span>
+              </span>
+              <div className="text-lg font-semibold text-purple-700">
+                ₹{(yearTotals.finalPayable ?? 0).toLocaleString()}
+              </div>
+            </div>
           </div>
         </>
-        
+
       )}
 
 
