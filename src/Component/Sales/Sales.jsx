@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import Modal from "../Layout/Modal";
-import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales, deleteSales, fetchSalesTotals, fetchSalesPerMonth } from "./Sales";
+import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales, editSales, deleteSales, fetchSalesTotals, fetchSalesPerMonth } from "./Sales";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
 import Report from "../Report/Report";
@@ -17,7 +17,7 @@ const MONTHS = [
 
 export default function Sales() {
   const [step, setStep] = useState(STEPS.GRID);
-  const [salesTable, setSalesTable] = useState([]);
+
   const [salesMen, setSalesMen] = useState([]);
   const [totals, setTotals] = useState({ totalAmount: 0, finalPayable: 0 });
   const [yearTotals, setYearTotals] = useState({ totalAmount: 0, finalPayable: 0 });
@@ -54,8 +54,8 @@ export default function Sales() {
     date: "",
     diesel: "",
     amount: "",
-    left: 0,
-    over: 0,
+    left: "",
+    over: "",
   });
 
   const loadSalesMen = useCallback(async () => {
@@ -332,8 +332,8 @@ export default function Sales() {
       date: info.dateStr,
       diesel: dieselOptions[0]?._id || "",
       amount: "",
-      left: 0,
-      over: 0,
+      left: "",
+      over: "",
     });
     setSubmitError(null);
     setShowSalesModal(true);
@@ -360,8 +360,8 @@ export default function Sales() {
       date: dateValue,
       diesel: sale.diesel ?? "",
       amount: sale.amount ?? sale.deposit ?? "",
-      left: sale.left ?? 0,
-      over: sale.over ?? 0,
+      left: sale.left ? String(sale.left) : "",
+      over: sale.over ? String(sale.over) : "",
     });
 
     setSubmitError(null);
@@ -372,7 +372,7 @@ export default function Sales() {
   //   const rawDate = sale.date ?? sale.sale_date ?? "";
   //   const dateValue = rawDate.split("T")[0];
 
-  //   setViewingSale(sale); // KEEP SALE FOR EDIT MODE
+  // setViewingSale(sale); // KEEP SALE FOR EDIT MODE
 
   //   setFormData({
   //     sales_man: selectedSalesman?._id || "",
@@ -439,9 +439,52 @@ export default function Sales() {
       setDeleting(false);
     }
   };
+  const getErrorMessage = (err) => {
+    const data = err?.response?.data;
+
+    if (typeof data === "string") return data;
+
+    return (
+      data?.message ||
+      data?.error ||
+      data?.msg ||
+      err?.message ||
+      "Something went wrong"
+    );
+  };
+  const addSalesFromCalendar = async () => {
+    const { sales_man, date } = formData;
+
+    if (!sales_man || !date) {
+      setSubmitError("Sales person and date are required.");
+      return;
+    }
+
+    const [year, month] = date.split("-").map(Number);
+
+    // ensure month exists
+    try {
+      await addMonth({
+        sales_man,
+        month,
+        year,
+      });
+    } catch {
+      // month already exists
+    }
+
+    return addSales({
+      date,
+      sales_man,
+      diesel: formData.diesel ?? "",
+      amount: formData.amount,
+      left: formData.left ?? 0,
+      over: formData.over ?? 0,
+    });
+  };
 
   const handleAddSalesSubmit = async (e) => {
-
+    console.log("FORM SUBMIT TRIGGERED");
     e.preventDefault();
 
     setSubmitting(true);
@@ -449,55 +492,66 @@ export default function Sales() {
 
     try {
 
-      if (viewingSale?._id) {
+      console.log("viewingSale", viewingSale);
+      // EDIT MODE
 
-        // EDIT MODE
-        await addSales({
-          _id: viewingSale._id,
+      if (viewingSale?._id) {
+        console.log("EDIT MODE:", viewingSale?._id);
+        console.log("EDIT PAYLOAD", {
+          id: viewingSale._id,
           date: formData.date,
           sales_man: formData.sales_man,
-          diesel: formData.diesel,
+          diesel: formData.diesel ?? "",
           amount: formData.amount,
-          left: formData.left ?? 0,
-          over: formData.over ?? 0,
+          left: formData.left,
+          over: formData.over,
+        });
+        await editSales({
+          id: viewingSale._id,
+          date: formData.date,
+          sales_man: formData.sales_man,
+          diesel: formData.diesel ?? "",
+          amount: Number(formData.amount),
+          left: formData.left === "" ? 0 : Number(formData.left),
+          over: formData.over === "" ? 0 : Number(formData.over),
         });
 
-      } else {
+      }
+      // ADD MODE
+      else {
 
-        // ADD MODE
-        await ensureMonthThenAddSales();
+        if (step === STEPS.CALENDAR && selectedSalesman?._id) {
+          await addSalesFromCalendar();
+        } else {
+          await ensureMonthThenAddSales();
+        }
 
       }
 
       setShowSalesModal(false);
       setViewingSale(null);
 
+      // reload calendar data
       if (selectedSalesman?._id) {
         await loadSalesForSalesman(
           selectedSalesman._id,
           monthYear.month,
           monthYear.year
         );
+
         await loadPerMonthTotals(
           selectedSalesman._id,
           monthYear.month,
           monthYear.year
         );
+
         await loadYearTotals(selectedSalesman._id);
       }
 
     } catch (err) {
-
-      setSubmitError(
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to save sales"
-      );
-
+      setSubmitError(getErrorMessage(err) || "Failed to save sales");
     } finally {
-
       setSubmitting(false);
-
     }
   };
   const handleDatesSet = (info) => {
@@ -842,41 +896,45 @@ export default function Sales() {
         )}
       </Modal>
 
-      {/* Add Sales modal */}
+      {/* Add Sales modal - larger card & text for accessibility (older users) */}
       <Modal
         isOpen={showSalesModal}
         onClose={() => setShowSalesModal(false)}
         title={viewingSale ? "Edit Sales Entry" : "Add Sales Entry"}
+        cardClassName="max-w-2xl"
+        titleSize="text-xl"
+        contentPadding="p-6"
       >
-        <form onSubmit={handleAddSalesSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sales person <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={selectedSalesman?.name ?? selectedSalesman?.email ?? formData.sales_man}
-              readOnly
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] bg-gray-50 text-gray-700"
-            />
-            <input type="hidden" name="sales_man" value={formData.sales_man} />
+        <form onSubmit={handleAddSalesSubmit} className="space-y-5 text-lg">
+          {/* Sales Person (bold name) | Date */}
+          <div className="flex flex-wrap items-end gap-5">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Sales Person <span className="text-danger">*</span>
+              </label>
+              <div className="px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] bg-gray-50 text-gray-900 font-semibold">
+                {(selectedSalesman?.name ?? selectedSalesman?.email ?? formData.sales_man) || "—"}
+              </div>
+              <input type="hidden" name="sales_man" value={formData.sales_man} />
+            </div>
+            <div className="flex-1 min-w-[160px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Date <span className="text-danger">*</span>
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+                required
+              />
+            </div>
           </div>
+          {/* Diesel */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date <span className="text-danger">*</span>
-            </label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) =>
-                setFormData({ ...formData, date: e.target.value })
-              }
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
               Diesel
             </label>
             <select
@@ -884,7 +942,7 @@ export default function Sales() {
               onChange={(e) =>
                 setFormData({ ...formData, diesel: e.target.value })
               }
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
             >
               <option value="">Select diesel (optional)</option>
               {dieselOptions.map((d) => (
@@ -897,8 +955,9 @@ export default function Sales() {
               ))}
             </select>
           </div>
+          {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
               Amount <span className="text-danger">*</span>
             </label>
             <input
@@ -910,70 +969,73 @@ export default function Sales() {
                 setFormData({ ...formData, amount: e.target.value })
               }
               placeholder="Amount"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Left(ખૂટતા)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={formData.left}
-              onChange={(e) =>
-                setFormData({ ...formData, left: e.target.value || 0 })
-              }
-              placeholder="0"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Over(વધુ)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={formData.over}
-              onChange={(e) =>
-                setFormData({ ...formData, over: e.target.value || 0 })
-              }
-              placeholder="0"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-            />
+          {/* Left | Over */}
+          <div className="flex flex-wrap gap-5">
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Left (ખૂટતા)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={formData.left ?? ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, left: e.target.value })
+                }
+                placeholder="0"
+                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Over (વધુ)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={formData.over ?? ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, over: e.target.value })
+                }
+                placeholder="0"
+                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
           </div>
           {submitError && (
-            <div className="text-danger text-sm">{submitError}</div>
+            <div className="text-danger text-base">{submitError}</div>
           )}
-          <div className="flex justify-between gap-2 pt-2">
-            <div className="flex gap-2">
+          <div className="flex justify-between gap-3 pt-3">
+            <div className="flex gap-3">
               {viewingSale?._id && (
                 <button
                   type="button"
                   onClick={handleDeleteSale}
                   disabled={deleting || submitting}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  className="px-5 py-3 text-lg bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {deleting ? "Deleting…" : "Delete"}
                 </button>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowSalesModal(false)}
-                className="px-4 py-2 border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
+                className="px-5 py-3 text-lg border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting || deleting}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                className="px-5 py-3 text-lg bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
               >
                 {submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
               </button>

@@ -35,9 +35,14 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-4">
       <div className="w-full max-w-md">
         <div className="bg-card rounded-2xl shadow-2xl p-8 border border-[#E5E7EB]">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            <img src="/image.png" alt="Shreeji Management" className="w-10 h-10" />
-          </h1>
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <img
+              src="/balaji-logo.png"
+              alt="Balaji Wafers"
+              className="max-h-14 w-auto object-contain"
+            />
+            <h1 className="text-xl font-semibold text-gray-900">Shreeji Sales</h1>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             Sign In
           </h1>

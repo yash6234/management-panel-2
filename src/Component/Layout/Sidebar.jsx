@@ -24,8 +24,13 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 h-screen bg-primary flex flex-col text-white">
-      <div className="p-6">
-        <h1 className="text-xl font-semibold text-white/95">Shreeji Management</h1>
+      <div className="p-4 flex flex-col items-center gap-2">
+        <img
+          src="/balaji-logo.png"
+          alt="Balaji Wafers"
+          className="max-h-16 w-auto object-contain"
+        />
+        <span className="text-white/95 font-semibold text-center">Shreeji Sales</span>
       </div>
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map(({ path, label, icon: Icon, end }) => (
