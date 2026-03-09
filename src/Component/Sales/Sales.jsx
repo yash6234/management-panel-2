@@ -811,7 +811,7 @@ useEffect(() => {
             )}
           </div> */}
 
-          <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
+          <div className="flex-1 min-h-[calc(100vh-10rem)] rounded-xl border border-[#E5E7EB] overflow-hidden p-4 relative flex flex-col">
             <style>{`
               .fc-daygrid-day.fc-day-addable { cursor: pointer; }
               .fc-daygrid-day.fc-day-addable:hover { background: rgba(59, 130, 246, 0.08); }
