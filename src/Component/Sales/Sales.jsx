@@ -364,8 +364,8 @@ export default function Sales() {
       date: info.dateStr,
       diesel: dieselOptions[0]?._id || "",
       amount: "",
-      left: 0,
-      over: 0,
+      left: "",
+      over: "",
     });
     setSubmitError(null);
     setShowSalesModal(true);
@@ -387,13 +387,15 @@ export default function Sales() {
 
     setViewingSale(sale);
 
+    const leftVal = sale.left;
+    const overVal = sale.over;
     setFormData({
       sales_man: selectedSalesman?._id || "",
       date: dateValue,
       diesel: sale.diesel ?? "",
       amount: sale.amount ?? sale.deposit ?? "",
-      left: sale.left ?? 0,
-      over: sale.over ?? 0,
+      left: leftVal === 0 || leftVal === "0" || leftVal == null ? "" : leftVal,
+      over: overVal === 0 || overVal === "0" || overVal == null ? "" : overVal,
     });
 
     setSubmitError(null);
@@ -932,7 +934,7 @@ export default function Sales() {
                 type="number"
                 min="0"
                 step="any"
-                value={formData.left}
+                value={formData.left === 0 || formData.left === "0" ? "" : formData.left}
                 onChange={(e) =>
                   setFormData({ ...formData, left: e.target.value })
                 }
@@ -948,7 +950,7 @@ export default function Sales() {
                 type="number"
                 min="0"
                 step="any"
-                value={formData.over}
+                value={formData.over === 0 || formData.over === "0" ? "" : formData.over}
                 onChange={(e) =>
                   setFormData({ ...formData, over: e.target.value })
                 }
