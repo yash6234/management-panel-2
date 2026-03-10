@@ -55,8 +55,8 @@ export default function Sales() {
     date: "",
     diesel: "",
     amount: "",
-    left: 0,
-    over: 0,
+    left: "",
+    over: "",
   });
 
   const loadSalesMen = useCallback(async () => {
@@ -595,7 +595,7 @@ export default function Sales() {
             {/* Monthly Total Payable */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
               <span className="text-sm text-gray-600 block">
-                Total Payable
+                Total Payable(આપવાના)
                 {perMonthData?.monthLabel && (
                   <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
                 )}
@@ -849,36 +849,40 @@ export default function Sales() {
         isOpen={showSalesModal}
         onClose={() => setShowSalesModal(false)}
         title={viewingSale ? "Edit Sales Entry" : "Add Sales Entry"}
+        cardClassName="max-w-2xl"
+        titleSize="text-xl"
+        contentPadding="p-6"
       >
-        <form onSubmit={handleAddSalesSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sales person <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={selectedSalesman?.name ?? selectedSalesman?.email ?? formData.sales_man}
-              readOnly
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] bg-gray-50 text-gray-700"
-            />
-            <input type="hidden" name="sales_man" value={formData.sales_man} />
+        <form onSubmit={handleAddSalesSubmit} className="space-y-5 text-lg">
+          {/* Row 1: Sales Person (bold) | Date */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Sales Person <span className="text-danger">*</span>
+              </label>
+              <div className="font-bold text-gray-900 px-5 py-3.5 rounded-lg border border-[#E5E7EB] bg-gray-50 text-lg">
+                {(selectedSalesman?.name ?? selectedSalesman?.email ?? formData.sales_man) || "—"}
+              </div>
+              <input type="hidden" name="sales_man" value={formData.sales_man} />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Date <span className="text-danger">*</span>
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+                required
+              />
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date <span className="text-danger">*</span>
-            </label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) =>
-                setFormData({ ...formData, date: e.target.value })
-              }
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
               Diesel
             </label>
             <select
@@ -886,7 +890,7 @@ export default function Sales() {
               onChange={(e) =>
                 setFormData({ ...formData, diesel: e.target.value })
               }
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
             >
               <option value="">Select diesel (optional)</option>
               {dieselOptions.map((d) => (
@@ -899,8 +903,9 @@ export default function Sales() {
               ))}
             </select>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
               Amount <span className="text-danger">*</span>
             </label>
             <input
@@ -912,53 +917,58 @@ export default function Sales() {
                 setFormData({ ...formData, amount: e.target.value })
               }
               placeholder="Amount"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Left(ખૂટતા)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={formData.left}
-              onChange={(e) =>
-                setFormData({ ...formData, left: e.target.value || 0 })
-              }
-              placeholder="0"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-            />
+
+          {/* Left | Over side by side */}
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Left (ખૂટતા)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={formData.left}
+                onChange={(e) =>
+                  setFormData({ ...formData, left: e.target.value })
+                }
+                placeholder="0"
+                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Over (વધુ)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={formData.over}
+                onChange={(e) =>
+                  setFormData({ ...formData, over: e.target.value })
+                }
+                placeholder="0"
+                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Over(વધુ)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={formData.over}
-              onChange={(e) =>
-                setFormData({ ...formData, over: e.target.value || 0 })
-              }
-              placeholder="0"
-              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
+
           {submitError && (
-            <div className="text-danger text-sm">{submitError}</div>
+            <div className="text-danger text-lg">{submitError}</div>
           )}
-          <div className="flex justify-between gap-2 pt-2">
+          <div className="flex justify-between gap-3 pt-3">
             <div className="flex gap-2">
               {viewingSale?._id && (
                 <button
                   type="button"
                   onClick={handleDeleteSale}
                   disabled={deleting || submitting}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  className="px-5 py-3 text-lg bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {deleting ? "Deleting…" : "Delete"}
                 </button>
@@ -968,14 +978,14 @@ export default function Sales() {
               <button
                 type="button"
                 onClick={() => setShowSalesModal(false)}
-                className="px-4 py-2 border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
+                className="px-5 py-3 text-lg border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting || deleting}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                className="px-5 py-3 text-lg bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
               >
                 {submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
               </button>

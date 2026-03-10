@@ -40,20 +40,20 @@ function Commission({
           <Plus className="w-5 h-5" /> Add
         </button>
       </div>
-      <table className="w-full text-base">
+      <table className="w-full text-lg">
         <thead>
-          <tr className="text-left text-base text-gray-600">
-            <th className="pb-3 pt-1 font-medium">Name</th>
-            <th className="pb-3 pt-1 font-medium">Amount</th>
-            <th className="pb-3 pt-1 font-medium">Actions</th>
+          <tr className="text-left text-lg text-gray-600">
+            <th className="pb-4 pt-2 font-medium">Name</th>
+            <th className="pb-4 pt-2 font-medium">Value</th>
+            <th className="pb-4 pt-2 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
           {commission.map((c) => (
             <tr key={c._id} className="border-t border-[#E5E7EB]">
-              <td className="py-4 text-gray-900">{c.name}</td>
-              <td className="py-4 text-gray-600">{c.amount}</td>
-              <td className="py-4 flex gap-2">
+              <td className="py-5 text-lg text-gray-900">{c.name}</td>
+              <td className="py-5 text-lg text-gray-600">{c.amount}</td>
+              <td className="py-5 flex gap-2">
                 <button
                   onClick={() => {
                     setFormData(c);
@@ -83,13 +83,13 @@ function Commission({
             ? "Add Commission/Labour"
             : "Edit Commission/Labour"
         }
-        cardClassName="max-w-2xl"
-        titleSize="text-xl"
-        contentPadding="p-6"
+        cardClassName="max-w-3xl"
+        titleSize="text-2xl"
+        contentPadding="p-8"
       >
-        <form onSubmit={onSubmit} className="space-y-5 text-lg">
+        <form onSubmit={onSubmit} className="space-y-6 text-xl">
           <div>
-            <label className="block text-lg font-medium text-gray-700 mb-2">
+            <label className="block text-xl font-medium text-gray-700 mb-2">
               Name <span className="text-danger">*</span>
             </label>
             <input
@@ -97,13 +97,13 @@ function Commission({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Name"
-              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-5 py-4 text-xl rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
               required
             />
           </div>
           <div>
-            <label className="block text-lg font-medium text-gray-700 mb-2">
-              Amount <span className="text-danger">*</span>
+            <label className="block text-xl font-medium text-gray-700 mb-2">
+              Value <span className="text-danger">*</span>
             </label>
             <input
               type="number"
@@ -113,22 +113,22 @@ function Commission({
               onChange={(e) =>
                 setFormData({ ...formData, amount: e.target.value })
               }
-              placeholder="Amount"
-              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              placeholder="Value"
+              className="w-full px-5 py-4 text-xl rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
               required
             />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-3 text-lg border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
+              className="px-5 py-3 text-xl border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-3 text-lg bg-primary text-white rounded-lg hover:bg-primary/90"
+              className="px-5 py-3 text-xl bg-primary text-white rounded-lg hover:bg-primary/90"
             >
               Save
             </button>

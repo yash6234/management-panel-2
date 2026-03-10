@@ -253,7 +253,7 @@ export default function Masters() {
             <button
               key={tab}
               onClick={() => setActiveTab(i)}
-              className={`px-6 py-4 text-base font-medium transition-colors ${activeTab === i
+              className={`px-6 py-4 text-lg font-medium transition-colors ${activeTab === i
                 ? "text-primary border-b-2 border-primary"
                 : "text-gray-500 hover:text-gray-700"
                 }`}
@@ -263,7 +263,7 @@ export default function Masters() {
           ))}
         </div>
 
-        <div className="p-8">
+        <div className="p-10">
           {activeTab === 0 && (
             <Person
               persons={persons}
