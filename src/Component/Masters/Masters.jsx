@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import Person from "./Person.jsx";
 import Vehicle from "./Vehicle.jsx";
 import Commission from "./Commission.jsx";
-import { initialPersons, generateId } from "./Person";
-import { initialVehicles } from "./Vehicle";
+import { generateId } from "./Person";
 
 import {
   fetchSalesMen,
@@ -22,8 +21,8 @@ const TABS = ["Personal Details", "Vehicle", "Commission/Labour"];
 
 export default function Masters() {
   const [activeTab, setActiveTab] = useState(0);
-  const [persons, setPersons] = useState(initialPersons);
-  const [vehicles, setVehicles] = useState(initialVehicles);
+  const [persons, setPersons] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [commission, setCommission] = useState("");
   const [personModal, setPersonModal] = useState(null);
   const [vehicleModal, setVehicleModal] = useState(null);
