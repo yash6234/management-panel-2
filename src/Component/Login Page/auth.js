@@ -41,7 +41,6 @@ export const login = async (data) => {
 
     const decrypted = decryptData(encryptedPayload);
     const decryptedMessage = encryptedMessage ? decryptData(encryptedMessage) : null;
-    console.log('decrypted', decrypted);
     if (!decrypted) {
       return { success: false, msg: 'Unable to decrypt server response' };
     }

@@ -279,8 +279,10 @@ Payloads are encrypted and URL-encoded in the `:data` path segment (same pattern
 | `/admin/sales/sales-man/fetch-sales/:data` | GET | `{ salesman_id }` | Fetch sales for a salesman |
 | `/admin/sales/sales-man/add-month/:data` | GET | `{ sales_man, month, year }` | Add month for salesman |
 | `/admin/sales/sales-man/add-sales/:data` | GET | `{ date, sales_man, diesel, amount, left, over }` | Add a sales entry |
+| `/admin/sales/sales-man/edit-sales/:data` | GET | `{ _id, date, sales_man, diesel, amount, left, over }` | Edit a sales entry |
+| `/admin/sales/sales-man/delete-sales/:data` | GET | `{ _id }` | Delete a sales entry |
 
-Implemented in `src/Component/Sales/Sales.js` (`fetchDailySales`, `fetchSales`, `addMonth`, `addSales`).
+Implemented in `src/Component/Sales/Sales.js` (`fetchDailySales`, `fetchSales`, `addMonth`, `addSales`, `editSales`, `deleteSales`).
 
 ---
 

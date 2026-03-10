@@ -25,9 +25,6 @@ export const addSalesMan = async (payload) => {
   const response = await axios.get(
     `${baseUrl}/add/${createPayload({ name, mobile_no, email, address })}`
   );
-
-  
-
   const result = decryptData(response.data.data);
 
   return fromApiPayload(result);
@@ -41,11 +38,10 @@ export const editSalesMan = async (payload) => {
   );
   const result = decryptData(response.data.data);
   return fromApiPayload(result);
-};  
+};
 
 export const fetchSalesMen = async () => {
   const response = await axios.get(`${baseUrl}/fetch/${createPayload()}`);
-  
   const data = decryptData(response.data.data);
   let list = [];
   if (Array.isArray(data)) {
@@ -57,15 +53,12 @@ export const fetchSalesMen = async () => {
 };
 
 export const deleteSalesMan = async (id) => {
-  
   const response = await axios.get(
     `${baseUrl}/delete/${createPayload({ _id: id })}`
   );
- if (!response.data || !response.data.data) {
+  if (!response.data || !response.data.data) {
     return true;
   }
-
-  // Only decrypt if encrypted data exists
   try {
     return decryptData(response.data.data);
   } catch {

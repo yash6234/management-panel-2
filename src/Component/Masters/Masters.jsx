@@ -51,7 +51,6 @@ export default function Masters() {
       const list = await fetchSalesMen();
       setPersons(list || []);
     } catch (err) {
-      console.error("Fetch persons error", err);
       const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? err?.response?.data?.msg ?? err?.message;
       setPersonError(msg || "Failed to fetch persons. Ensure you are logged in.");
     } finally {
@@ -67,7 +66,6 @@ export default function Masters() {
       const list = await fetchDiesel();
       setVehicles(list || []);
     } catch (err) {
-      console.error("Fetch vehicles error", err);
       const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? err?.response?.data?.msg ?? err?.message;
       setVehicleError(msg || "Failed to fetch vehicles. Ensure you are logged in.");
     } finally {
@@ -127,7 +125,6 @@ export default function Masters() {
       setPersonModal(null);
       setFormData({ name: "", mobile: "", email: "", address: "" });
     } catch (err) {
-      console.error("Person save error", err);
       setPersonError(
         err?.message || err?.response?.data?.message || "Failed to save. Check backend."
       );
@@ -147,7 +144,6 @@ export default function Masters() {
       await deleteSalesMan(id);
       await loadPersons();
     } catch (err) {
-      console.error("Delete person error", err);
       setPersonError(
         err?.message || err?.response?.data?.message || "Failed to delete. Check backend."
       );
@@ -198,7 +194,6 @@ export default function Masters() {
       setVehicleModal(null);
       setFormData({ name: "", amount: "" });
     } catch (err) {
-      console.error("Vehicle save error", err);
       setVehicleError(
         err?.message || err?.response?.data?.message || "Failed to save. Check backend."
       );
@@ -218,7 +213,6 @@ export default function Masters() {
       await deleteDiesel(id);
       await loadVehicles();
     } catch (err) {
-      console.error("Delete vehicle error", err);
       setVehicleError(
         err?.message || err?.response?.data?.message || "Failed to delete. Check backend."
       );

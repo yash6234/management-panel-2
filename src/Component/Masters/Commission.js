@@ -9,22 +9,19 @@ const createPayload = (additionalData = {}) => {
   return encodeURIComponent(encryptData({ data: token, ...additionalData }));
 };
 
-
 export const fetchCommissions = async () => {
   const response = await axios.get(
     `${baseUrl}/fetch/${createPayload({})}`
   );
   const data = decryptData(response.data.data);
-  console.log(data);
- return data.map((item) => ({
+  return data.map((item) => ({
     _id: item._id,
     name: item.field,   // 👈 table "Name"
     amount: item.value // 👈 table "Amount"
   }));
-};        
+};
 
 export const editCommission = async (id, value) => {
- 
   const response = await axios.get(
     `${baseUrl}/edit/${createPayload({_id: id, value: Number(value) })}`
   );

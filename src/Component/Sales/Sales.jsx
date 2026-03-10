@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import Modal from "../Layout/Modal";
-import { fetchSalesMan, fetchSales, fetchDailySales, addMonth, addSales, editSales, deleteSales, fetchSalesTotals, fetchSalesPerMonth } from "./Sales";
+import { fetchSalesMan, fetchDailySales, addMonth, addSales, editSales, deleteSales, fetchSalesTotals, fetchSalesPerMonth } from "./Sales";
 import { fetchSalesMen } from "../Masters/salesManApi";
 import { fetchDiesel } from "../Masters/dieselApi";
 import Report from "../Report/Report";
@@ -367,24 +367,6 @@ export default function Sales() {
     setSubmitError(null);
     setShowSalesModal(true);
   };
-  // const handleViewSaleDetails = (sale) => {
-
-  //   const rawDate = sale.date ?? sale.sale_date ?? "";
-  //   const dateValue = rawDate.split("T")[0];
-
-  //   setViewingSale(sale); // KEEP SALE FOR EDIT MODE
-
-  //   setFormData({
-  //     sales_man: selectedSalesman?._id || "",
-  //     date: dateValue,
-  //     diesel: sale.diesel ?? "",
-  //     amount: sale.amount ?? sale.deposit ?? "",
-  //     left: sale.left ?? 0,
-  //     over: sale.over ?? 0,
-  //   });
-
-  //   setShowSalesModal(true);
-  // };
 
   const ensureMonthThenAddSales = async () => {
     const { sales_man, date, diesel, amount, left, over } = formData;
@@ -441,25 +423,20 @@ export default function Sales() {
   };
 
   const handleAddSalesSubmit = async (e) => {
-
     e.preventDefault();
-
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-
       if (viewingSale?._id) {
-
-        // EDIT MODE
         await editSales({
-          _id: viewingSale._id,
+          id: viewingSale._id,
           date: formData.date,
           sales_man: formData.sales_man,
-          diesel: formData.diesel,
-          amount: formData.amount,
-          left: formData.left ?? 0,
-          over: formData.over ?? 0,
+          diesel: formData.diesel ?? "",
+          amount: Number(formData.amount),
+          left: formData.left === "" ? 0 : Number(formData.left),
+          over: formData.over === "" ? 0 : Number(formData.over),
         });
 
       } else {
@@ -468,7 +445,6 @@ export default function Sales() {
         await ensureMonthThenAddSales();
 
       }
-
       setShowSalesModal(false);
       setViewingSale(null);
 
@@ -532,7 +508,6 @@ export default function Sales() {
   return (
     <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col">
       <div className="flex items-center justify-between">
-        {/* <h2 className="text-xl font-semibold text-gray-900">Sales</h2> */}
         {step !== STEPS.GRID && (
           <button
             type="button"
@@ -618,37 +593,6 @@ export default function Sales() {
               </div>
             </div>
           </div>
-
-          {/* <div className="bg-card rounded-xl border border-[#E5E7EB] p-6 mb-4">
-            <h3 className="text-base font-semibold text-gray-900 mb-3">Added sales </h3>
-            {loadingSales && salesEntries.length === 0 ? (
-              <p className="text-gray-500 text-sm">Loading sales…</p>
-            ) : salesEntries.length === 0 ? (
-              <p className="text-gray-500 text-sm">No sales yet. Click a date on the calendar to add sales.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {salesEntries.map((s, i) => {
-                  const d = getSaleDisplay(s);
-                  return (
-                    <div
-                      key={s._id ?? s.id ?? i}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleViewSaleDetails(s)}
-                      onKeyDown={(e) => e.key === "Enter" && handleViewSaleDetails(s)}
-                      className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-[#E5E7EB] rounded-lg px-3 py-2 bg-gray-50/50 text-sm cursor-pointer hover:bg-gray-100 hover:border-primary/30 transition-colors"
-                    >
-                      <span className="font-medium text-gray-700">{d.date}</span>
-                      <span><span className="text-gray-500">Amount:</span> {d.amount}</span>
-                      <span><span className="text-gray-500">Diesel:</span> {d.diesel}</span>
-                      <span><span className="text-gray-500">Left:</span> {d.left}</span>
-                      <span><span className="text-gray-500">Over:</span> {d.over}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div> */}
 
           <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
             <style>{`
@@ -777,52 +721,6 @@ export default function Sales() {
           <p className="text-gray-500 text-center py-8">No sales persons found.</p>
         )}
       </div>
-
-      {/* View sale details modal */}
-      {/* <Modal
-        isOpen={!!viewingSale}
-        onClose={() => setViewingSale(null)}
-        title="Sale details"
-      >
-        {viewingSale && (() => {
-          const d = getSaleDisplay(viewingSale);
-          return (
-            <div className="space-y-4">
-              <div className="grid gap-3 text-sm">
-                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
-                  <span className="text-gray-500">Date</span>
-                  <span className="font-medium text-gray-900">{d.date}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
-                  <span className="text-gray-500">Amount</span>
-                  <span className="font-medium text-gray-900">₹{d.amount}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
-                  <span className="text-gray-500">Diesel</span>
-                  <span className="font-medium text-gray-900">{d.diesel}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
-                  <span className="text-gray-500">Left</span>
-                  <span className="font-medium text-gray-900">{d.left}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#E5E7EB] pb-2">
-                  <span className="text-gray-500">Over</span>
-                  <span className="font-medium text-gray-900">{d.over}</span>
-                </div>
-              </div>
-              <div className="flex justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setViewingSale(null)}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-      </Modal> */}
 
       {/* Report modal */}
       <Modal

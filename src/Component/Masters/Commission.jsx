@@ -1,10 +1,9 @@
 import { Pencil, Trash2, Plus } from "lucide-react";
 import Modal from "../Layout/Modal";
-import { useState,useEffect } from "react";
+import { useState, useEffect } from "react";
 import { fetchCommissions } from "./Commission";
 
-
- function Commission({
+function Commission({
 
   formData,
   modalState,
