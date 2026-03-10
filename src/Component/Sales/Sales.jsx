@@ -17,7 +17,7 @@ const MONTHS = [
 
 export default function Sales() {
   const [step, setStep] = useState(STEPS.GRID);
-
+  const [salesTable, setSalesTable] = useState([]);
   const [salesMen, setSalesMen] = useState([]);
   const [totals, setTotals] = useState({ totalAmount: 0, finalPayable: 0 });
   const [yearTotals, setYearTotals] = useState({ totalAmount: 0, finalPayable: 0 });
@@ -28,11 +28,7 @@ export default function Sales() {
   const [loading, setLoading] = useState(true);
   const [loadingSales, setLoadingSales] = useState(false);
   const [error, setError] = useState(null);
-  const [extraTotals, setExtraTotals] = useState({
-    totalDiesel: 0,
-    totalLeft: 0,
-    totalOver: 0,
-  });
+
   const [monthYear, setMonthYear] = useState(() => {
     const d = new Date();
     return { month: d.getMonth() + 1, year: d.getFullYear() };
@@ -58,8 +54,8 @@ export default function Sales() {
     date: "",
     diesel: "",
     amount: "",
-    left: "",
-    over: "",
+    left: 0,
+    over: 0,
   });
 
   const loadSalesMen = useCallback(async () => {
@@ -149,7 +145,21 @@ export default function Sales() {
     }
   }, [monthYear.month, monthYear.year]);
 
-
+  const loadSalesTotals = useCallback(async (salesmanId) => {
+    if (!salesmanId) return;
+    try {
+      const data = await fetchSalesTotals(salesmanId);
+      const totalAmount = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Number(item?.total_sales ?? 0), 0)
+        : Number(data?.total_amount ?? data?.totalAmount ?? 0);
+      const finalPayable = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Number(item?.final_amount ?? 0), 0)
+        : Number(data?.total_payable ?? data?.finalPayable ?? 0);
+      setTotals({ totalAmount, finalPayable });
+    } catch (err) {
+      console.error("Failed to load totals", err);
+    }
+  }, []);
 
   /** Fetches full-year total amount & total payable (fetchSalesTotals). */
   const loadYearTotals = useCallback(async (salesmanId) => {
@@ -173,7 +183,6 @@ export default function Sales() {
     if (!salesmanId) return;
     try {
       const data = await fetchSalesPerMonth(salesmanId, month, year);
-      console.log("PER MONTH API RESPONSE:", data);
       if (data == null) {
         setPerMonthData(null);
         return;
@@ -187,16 +196,19 @@ export default function Sales() {
       const y = Number(item.year ?? year);
       const monthLabel =
         item.month_name ?? item.monthName ?? item.month_label ?? MONTHS[m - 1];
-      setTotals({
-        totalAmount: Number(item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0),
-        finalPayable: Number(item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0)
-      });
+      const totalAmount = Number(
+        item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0
+      );
+      const totalPayable = Number(
+        item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0
+      );
+      setTotals({ totalAmount, finalPayable: totalPayable });
       setPerMonthData({
         month: m,
         year: y,
         monthLabel: `${monthLabel} ${y}`,
-        totalAmount: Number(item.total_amount ?? item.total_sales ?? item.totalAmount ?? 0),
-        totalPayable: Number(item.total_payable ?? item.final_amount ?? item.finalPayable ?? 0)
+        totalAmount,
+        totalPayable,
       });
     } catch (err) {
       console.error("Failed to load per-month totals", err);
@@ -207,15 +219,21 @@ export default function Sales() {
   useEffect(() => {
     if (step === STEPS.CALENDAR && selectedSalesman?._id) {
       loadSalesForSalesman(selectedSalesman._id, monthYear.month, monthYear.year);
-      loadPerMonthTotals(selectedSalesman._id, monthYear.month, monthYear.year);
+      loadPerMonthTotals(
+        selectedSalesman._id,
+        monthYear.month,
+        monthYear.year
+      );
       loadYearTotals(selectedSalesman._id);
-
     }
   }, [
     step,
     selectedSalesman?._id,
     monthYear.month,
     monthYear.year,
+    loadSalesForSalesman,
+    loadPerMonthTotals,
+    loadYearTotals,
   ]);
 
   const toDateStr = (val) => {
@@ -254,39 +272,10 @@ export default function Sales() {
     })
     .filter(Boolean);
 
-  useEffect(() => {
-
-    let totalDiesel = 0;
-    let totalLeft = 0;
-    let totalOver = 0;
-
-    salesEntries.forEach((sale) => {
-
-      totalLeft += Number(sale.left ?? 0);
-      totalOver += Number(sale.over ?? 0);
-
-      if (sale.diesel) {
-
-        const dieselObj = dieselOptions.find(
-          (d) => String(d._id) === String(sale.diesel)
-        );
-
-        if (dieselObj) {
-          totalDiesel += Number(dieselObj.amount ?? 0);
-        }
-
-      }
-
-    });
-
-    setExtraTotals({
-      totalDiesel,
-      totalLeft,
-      totalOver
-    });
-
-  }, [salesEntries, dieselOptions]);
-
+  const totalAmount = salesEntries.reduce((sum, s) => {
+    const amt = Number(s.amount ?? s.deposit ?? 0);
+    return sum + (isNaN(amt) ? 0 : amt);
+  }, 0);
   const renderEventContent = (eventInfo) => {
     const { amount, left, over } = eventInfo.event.extendedProps ?? {};
     return (
@@ -343,8 +332,8 @@ export default function Sales() {
       date: info.dateStr,
       diesel: dieselOptions[0]?._id || "",
       amount: "",
-      left: "",
-      over: "",
+      left: 0,
+      over: 0,
     });
     setSubmitError(null);
     setShowSalesModal(true);
@@ -371,8 +360,8 @@ export default function Sales() {
       date: dateValue,
       diesel: sale.diesel ?? "",
       amount: sale.amount ?? sale.deposit ?? "",
-      left: sale.left ? String(sale.left) : "",
-      over: sale.over ? String(sale.over) : "",
+      left: sale.left ?? 0,
+      over: sale.over ?? 0,
     });
 
     setSubmitError(null);
@@ -383,7 +372,7 @@ export default function Sales() {
   //   const rawDate = sale.date ?? sale.sale_date ?? "";
   //   const dateValue = rawDate.split("T")[0];
 
-  // setViewingSale(sale); // KEEP SALE FOR EDIT MODE
+  //   setViewingSale(sale); // KEEP SALE FOR EDIT MODE
 
   //   setFormData({
   //     sales_man: selectedSalesman?._id || "",
@@ -450,52 +439,9 @@ export default function Sales() {
       setDeleting(false);
     }
   };
-  const getErrorMessage = (err) => {
-    const data = err?.response?.data;
-
-    if (typeof data === "string") return data;
-
-    return (
-      data?.message ||
-      data?.error ||
-      data?.msg ||
-      err?.message ||
-      "Something went wrong"
-    );
-  };
-  const addSalesFromCalendar = async () => {
-    const { sales_man, date } = formData;
-
-    if (!sales_man || !date) {
-      setSubmitError("Sales person and date are required.");
-      return;
-    }
-
-    const [year, month] = date.split("-").map(Number);
-
-    // ensure month exists
-    try {
-      await addMonth({
-        sales_man,
-        month,
-        year,
-      });
-    } catch {
-      // month already exists
-    }
-
-    return addSales({
-      date,
-      sales_man,
-      diesel: formData.diesel ?? "",
-      amount: formData.amount,
-      left: formData.left ?? 0,
-      over: formData.over ?? 0,
-    });
-  };
 
   const handleAddSalesSubmit = async (e) => {
-    console.log("FORM SUBMIT TRIGGERED");
+
     e.preventDefault();
 
     setSubmitting(true);
@@ -503,66 +449,55 @@ export default function Sales() {
 
     try {
 
-      console.log("viewingSale", viewingSale);
-      // EDIT MODE
-
       if (viewingSale?._id) {
-        console.log("EDIT MODE:", viewingSale?._id);
-        console.log("EDIT PAYLOAD", {
-          id: viewingSale._id,
-          date: formData.date,
-          sales_man: formData.sales_man,
-          diesel: formData.diesel ?? "",
-          amount: formData.amount,
-          left: formData.left,
-          over: formData.over,
-        });
+
+        // EDIT MODE
         await editSales({
-          id: viewingSale._id,
+          _id: viewingSale._id,
           date: formData.date,
           sales_man: formData.sales_man,
-          diesel: formData.diesel ?? "",
-          amount: Number(formData.amount),
-          left: formData.left === "" ? 0 : Number(formData.left),
-          over: formData.over === "" ? 0 : Number(formData.over),
+          diesel: formData.diesel,
+          amount: formData.amount,
+          left: formData.left ?? 0,
+          over: formData.over ?? 0,
         });
 
-      }
-      // ADD MODE
-      else {
+      } else {
 
-        if (step === STEPS.CALENDAR && selectedSalesman?._id) {
-          await addSalesFromCalendar();
-        } else {
-          await ensureMonthThenAddSales();
-        }
+        // ADD MODE
+        await ensureMonthThenAddSales();
 
       }
 
       setShowSalesModal(false);
       setViewingSale(null);
 
-      // reload calendar data
       if (selectedSalesman?._id) {
         await loadSalesForSalesman(
           selectedSalesman._id,
           monthYear.month,
           monthYear.year
         );
-
         await loadPerMonthTotals(
           selectedSalesman._id,
           monthYear.month,
           monthYear.year
         );
-
         await loadYearTotals(selectedSalesman._id);
       }
 
     } catch (err) {
-      setSubmitError(getErrorMessage(err) || "Failed to save sales");
+
+      setSubmitError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save sales"
+      );
+
     } finally {
+
       setSubmitting(false);
+
     }
   };
   const handleDatesSet = (info) => {
@@ -618,7 +553,7 @@ export default function Sales() {
       {/* Calendar view (when step is CALENDAR) */}
       {step === STEPS.CALENDAR && selectedSalesman && (
         <>
-          <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center justify-between gap-4 mb-2">
             <h2 className="text-lg font-semibold text-gray-900">
               Sales calendar for {selectedSalesman.name ?? selectedSalesman.email ?? "Sales person"}
             </h2>
@@ -631,10 +566,6 @@ export default function Sales() {
             </button>
           </div>
 
-          {/* Per month total sale — above calendar */}
-          <p className="text-sm font-medium text-gray-700 mb-2">
-            Per month total sale — {perMonthData?.monthLabel ?? (monthYear?.month ? `${MONTHS[monthYear.month - 1]} ${monthYear.year}` : "Month")}
-          </p>
           <div className="flex flex-wrap gap-4 mb-4">
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 min-w-[180px]">
               <span className="text-sm text-gray-600 block">
@@ -653,11 +584,9 @@ export default function Sales() {
                 ₹{(totals.totalAmount ?? 0).toLocaleString()}
               </div>
             </div>
-
-            {/* Monthly Total Payable */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 min-w-[180px]">
               <span className="text-sm text-gray-600 block">
-                Total Payable (આપવાના)
+                Total Payable
                 {perMonthData?.monthLabel && (
                   <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
                 )}
@@ -672,61 +601,20 @@ export default function Sales() {
                 ₹{(totals.finalPayable ?? 0).toLocaleString()}
               </div>
             </div>
-
-            {/* Monthly Total Diesel */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 min-w-[180px]">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 min-w-[180px]">
               <span className="text-sm text-gray-600 block">
-                Total Diesel
-                {perMonthData?.monthLabel && (
-                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-                )}
-                {!perMonthData?.monthLabel && monthYear?.month && (
-                  <span className="font-medium text-gray-700">
-                    {" "}
-                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
-                  </span>
-                )}
+                Total Amount <span className="font-medium text-gray-700">— Year {monthYear?.year ?? new Date().getFullYear()}</span>
               </span>
-              <div className="text-lg font-semibold text-yellow-700">
-                ₹{(extraTotals.totalDiesel ?? 0).toLocaleString()}
+              <div className="text-lg font-semibold text-amber-700">
+                ₹{(yearTotals.totalAmount ?? 0).toLocaleString()}
               </div>
             </div>
-
-            {/* Monthly Total Left */}
-            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 min-w-[180px]">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 min-w-[180px]">
               <span className="text-sm text-gray-600 block">
-                Total Left
-                {perMonthData?.monthLabel && (
-                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-                )}
-                {!perMonthData?.monthLabel && monthYear?.month && (
-                  <span className="font-medium text-gray-700">
-                    {" "}
-                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
-                  </span>
-                )}
+                Total Payable <span className="font-medium text-gray-700">— Year {monthYear?.year ?? new Date().getFullYear()}</span>
               </span>
-              <div className="text-lg font-semibold text-red-700">
-                ₹{(extraTotals.totalLeft ?? 0).toLocaleString()}
-              </div>
-            </div>
-
-            {/* Monthly Total Over */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Over
-                {perMonthData?.monthLabel && (
-                  <span className="font-medium text-gray-700"> — {perMonthData.monthLabel}</span>
-                )}
-                {!perMonthData?.monthLabel && monthYear?.month && (
-                  <span className="font-medium text-gray-700">
-                    {" "}
-                    — {MONTHS[monthYear.month - 1]} {monthYear.year}
-                  </span>
-                )}
-              </span>
-              <div className="text-lg font-semibold text-indigo-700">
-                ₹{(extraTotals.totalOver ?? 0).toLocaleString()}
+              <div className="text-lg font-semibold text-purple-700">
+                ₹{(yearTotals.finalPayable ?? 0).toLocaleString()}
               </div>
             </div>
           </div>
@@ -762,7 +650,7 @@ export default function Sales() {
             )}
           </div> */}
 
-          <div className="flex-1 min-h-[calc(100vh-10rem)] rounded-xl border border-[#E5E7EB] overflow-hidden p-4 relative flex flex-col">
+          <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
             <style>{`
               .fc-daygrid-day.fc-day-addable { cursor: pointer; }
               .fc-daygrid-day.fc-day-addable:hover { background: rgba(59, 130, 246, 0.08); }
@@ -797,39 +685,8 @@ export default function Sales() {
                 dayCellClassNames={() => ["fc-day-addable"]}
               />
             </div>
-
-          </div>
-
-          {/* Year-wise totals — after calendar UI */}
-          <p className="text-sm font-medium text-gray-700 mt-4 mb-2">
-            Year-wise totals — Year {monthYear?.year ?? new Date().getFullYear()}
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Amount
-                <span className="font-medium text-gray-700">
-                  {" "}— Year {monthYear?.year ?? new Date().getFullYear()}
-                </span>
-              </span>
-              <div className="text-lg font-semibold text-amber-700">
-                ₹{(yearTotals.totalAmount ?? 0).toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 min-w-[180px]">
-              <span className="text-sm text-gray-600 block">
-                Total Payable (આપવાના)
-                <span className="font-medium text-gray-700">
-                  {" "}— Year {monthYear?.year ?? new Date().getFullYear()}
-                </span>
-              </span>
-              <div className="text-lg font-semibold text-purple-700">
-                ₹{(yearTotals.finalPayable ?? 0).toLocaleString()}
-              </div>
-            </div>
           </div>
         </>
-
       )}
 
 
@@ -985,45 +842,41 @@ export default function Sales() {
         )}
       </Modal>
 
-      {/* Add Sales modal - larger card & text for accessibility (older users) */}
+      {/* Add Sales modal */}
       <Modal
         isOpen={showSalesModal}
         onClose={() => setShowSalesModal(false)}
         title={viewingSale ? "Edit Sales Entry" : "Add Sales Entry"}
-        cardClassName="max-w-2xl"
-        titleSize="text-xl"
-        contentPadding="p-6"
       >
-        <form onSubmit={handleAddSalesSubmit} className="space-y-5 text-lg">
-          {/* Sales Person (bold name) | Date */}
-          <div className="flex flex-wrap items-end gap-5">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                Sales Person <span className="text-danger">*</span>
-              </label>
-              <div className="px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] bg-gray-50 text-gray-900 font-semibold">
-                {(selectedSalesman?.name ?? selectedSalesman?.email ?? formData.sales_man) || "—"}
-              </div>
-              <input type="hidden" name="sales_man" value={formData.sales_man} />
-            </div>
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                Date <span className="text-danger">*</span>
-              </label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-                required
-              />
-            </div>
-          </div>
-          {/* Diesel */}
+        <form onSubmit={handleAddSalesSubmit} className="space-y-4">
           <div>
-            <label className="block text-lg font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Sales person <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={selectedSalesman?.name ?? selectedSalesman?.email ?? formData.sales_man}
+              readOnly
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] bg-gray-50 text-gray-700"
+            />
+            <input type="hidden" name="sales_man" value={formData.sales_man} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date <span className="text-danger">*</span>
+            </label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Diesel
             </label>
             <select
@@ -1031,7 +884,7 @@ export default function Sales() {
               onChange={(e) =>
                 setFormData({ ...formData, diesel: e.target.value })
               }
-              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
             >
               <option value="">Select diesel (optional)</option>
               {dieselOptions.map((d) => (
@@ -1044,9 +897,8 @@ export default function Sales() {
               ))}
             </select>
           </div>
-          {/* Amount */}
           <div>
-            <label className="block text-lg font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Amount <span className="text-danger">*</span>
             </label>
             <input
@@ -1058,73 +910,70 @@ export default function Sales() {
                 setFormData({ ...formData, amount: e.target.value })
               }
               placeholder="Amount"
-              className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
               required
             />
           </div>
-          {/* Left | Over */}
-          <div className="flex flex-wrap gap-5">
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                Left (ખૂટતા)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={formData.left ?? ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, left: e.target.value })
-                }
-                placeholder="0"
-                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                Over (વધુ)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={formData.over ?? ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, over: e.target.value })
-                }
-                placeholder="0"
-                className="w-full px-5 py-3.5 text-lg rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Left(ખૂટતા)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={formData.left}
+              onChange={(e) =>
+                setFormData({ ...formData, left: e.target.value || 0 })
+              }
+              placeholder="0"
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Over(વધુ)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={formData.over}
+              onChange={(e) =>
+                setFormData({ ...formData, over: e.target.value || 0 })
+              }
+              placeholder="0"
+              className="w-full px-4 py-2 rounded-lg border border-[#E5E7EB] focus:ring-2 focus:ring-primary/30"
+            />
           </div>
           {submitError && (
-            <div className="text-danger text-base">{submitError}</div>
+            <div className="text-danger text-sm">{submitError}</div>
           )}
-          <div className="flex justify-between gap-3 pt-3">
-            <div className="flex gap-3">
+          <div className="flex justify-between gap-2 pt-2">
+            <div className="flex gap-2">
               {viewingSale?._id && (
                 <button
                   type="button"
                   onClick={handleDeleteSale}
                   disabled={deleting || submitting}
-                  className="px-5 py-3 text-lg bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {deleting ? "Deleting…" : "Delete"}
                 </button>
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowSalesModal(false)}
-                className="px-5 py-3 text-lg border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-[#E5E7EB] rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting || deleting}
-                className="px-5 py-3 text-lg bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
               >
                 {submitting ? "Saving…" : viewingSale ? "Update" : "Add"}
               </button>
