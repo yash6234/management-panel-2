@@ -14,7 +14,7 @@ const baseUrl = `${import.meta.env.VITE_IP}/admin/sales/sales-man`;
 const baseUrl1 = `${import.meta.env.VITE_IP}/admin/sales`;
 
 
-const createPayload = (additionalData = {}) => {
+  const createPayload = (additionalData = {}) => {
   const token = Cookie.get("data");
   return encodeURIComponent(encryptData({ data: token, ...additionalData }));
 };
