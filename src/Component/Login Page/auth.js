@@ -4,6 +4,22 @@ import { encryptData, decryptData } from '../../api/enc_dec_admin.js';
 
 const TOKEN_KEY = 'data';
 
+/**
+ * Returns the decrypted auth payload if valid (has token, id, user).
+ * Returns null if missing, invalid, or decryption fails.
+ */
+export const getValidAuthUser = () => {
+  try {
+    const stored = Cookie.get(TOKEN_KEY) || localStorage.getItem('token');
+    if (!stored) return null;
+    const decrypted = decryptData(stored);
+    if (!decrypted || typeof decrypted !== 'object') return null;
+    if (!decrypted.token || !decrypted.id || !decrypted.user) return null;
+    return decrypted;
+  } catch {
+    return null;
+  }
+};
 
 export const getToken = () => Cookie.get(TOKEN_KEY);
 export const setToken = (token) => {

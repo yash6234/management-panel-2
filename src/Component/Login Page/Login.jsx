@@ -22,7 +22,7 @@ export default function Login() {
       const result = await login({ email, password });
       if (result?.success) {
         localStorage.setItem("token", result.token);
-        navigate("/dashboard");
+        window.location.href = "/dashboard";
       } else {
         setError(result?.msg || "Failed to login");
       }

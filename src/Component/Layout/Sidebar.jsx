@@ -6,6 +6,7 @@ import {
   Database,
   LogOut,
 } from "lucide-react";
+import Cookie from "js-cookie";
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -19,6 +20,7 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    Cookie.remove("data");
     navigate("/login");
   };
 
