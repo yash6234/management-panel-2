@@ -667,6 +667,7 @@ export default function Sales() {
                 {(extraTotals.totalOver ?? 0).toLocaleString()}
               </div>
             </div>
+
           </div>
 
           <div className="flex-1 min-h-[calc(100vh-10rem)] bg-card rounded-xl border border-[#E5E7EB] overflow-auto p-4 relative flex flex-col">
@@ -703,6 +704,34 @@ export default function Sales() {
                 dayMaxEventRows={false}
                 dayCellClassNames={() => ["fc-day-addable"]}
               />
+            </div>
+          </div>
+
+          <p className="text-sm font-medium text-gray-700 mt-4 mb-2">
+            Year-wise totals — Year {monthYear?.year ?? new Date().getFullYear()}
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Amount
+                <span className="font-medium text-gray-700">
+                  {" "}— Year {monthYear?.year ?? new Date().getFullYear()}
+                </span>
+              </span>
+              <div className="text-lg font-semibold text-amber-700">
+                ₹{(yearTotals.totalAmount ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 min-w-[180px]">
+              <span className="text-sm text-gray-600 block">
+                Total Payable (આપવાના)
+                <span className="font-medium text-gray-700">
+                  {" "}— Year {monthYear?.year ?? new Date().getFullYear()}
+                </span>
+              </span>
+              <div className="text-lg font-semibold text-purple-700">
+                ₹{(yearTotals.finalPayable ?? 0).toLocaleString()}
+              </div>
             </div>
           </div>
         </>
